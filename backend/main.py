@@ -3,10 +3,9 @@ from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI()
 
-# Разрешить запросы с фронтенда
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],  # порт фронтенда
+    allow_origins=["http://localhost:5173"], 
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
