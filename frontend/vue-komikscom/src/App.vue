@@ -1,24 +1,25 @@
 <script setup>
-// import { RouterLink, RouterView } from 'vue-router'
-// import HelloWorld from './components/HelloWorld.vue'
+import { RouterLink, RouterView } from 'vue-router'
+import HelloWorld from './components/HelloWorld.vue'
 import { ref, onMounted } from 'vue'
-
-const res = ref(null)
-
-onMounted(async () => {
-  const response = await fetch(`${import.meta.env.VITE_API_URL}/hello`);
-  const data = await response.json();
-  res.value = data.message;  // например, ожидаем { message: "Hello from FastAPI" }
-});
+onMounted(() => {
+ 
+})
 </script>
 
 <template>
-  <p>{{ res }}</p>
-  
+  <HelloWorld></HelloWorld>
+  <RouterView></RouterView>
 </template>
 
 <style scoped>
 p { 
-  color: black;
+  color: white;
+}
+</style>
+
+<style>
+body {
+  background-color: #181818;
 }
 </style>

@@ -1,44 +1,76 @@
 <script setup>
-defineProps({
-  msg: {
-    type: String,
-    required: true,
-  },
-})
 </script>
 
 <template>
-  <div class="greetings">
-    <h1 class="green">{{ msg }}</h1>
-    <h3>
-      You’ve successfully created a project with
-      <a href="https://vite.dev/" target="_blank" rel="noopener">Vite</a> +
-      <a href="https://vuejs.org/" target="_blank" rel="noopener">Vue 3</a>.
-    </h3>
+<header class="header">
+  <div class="logo">
+    <div class="logo-star">★</div>
   </div>
+  <nav>
+    <div>Каталог</div>
+    <div>Любимое</div>
+  </nav>
+  <div class="search-bar">
+    <input type="text" placeholder="Поиск">
+  </div>
+  <nav>
+    <div>Вход</div>
+  </nav>
+</header>
 </template>
 
-<style scoped>
-h1 {
-  font-weight: 500;
-  font-size: 2.6rem;
-  position: relative;
-  top: -10px;
+<style>
+.header {
+  margin-left: auto;
+  margin-right:auto;
+  display: flex;
+  align-items: center;
+  background-color: #1c1c1c;
+  padding: 10px 20px;
+  color: white;
+  max-width: 85vw; 
+  min-height: 70px; 
 }
 
-h3 {
-  font-size: 1.2rem;
+.logo {
+  background: red;
+  border-radius: 80%;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 20px;
 }
 
-.greetings h1,
-.greetings h3 {
-  text-align: center;
+.logo-star {
+  color: black;
+  font-size: 46px;
 }
 
-@media (min-width: 1024px) {
-  .greetings h1,
-  .greetings h3 {
-    text-align: left;
-  }
+nav {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  color: white;
+  font-weight: bold;
+}
+
+.search-bar {
+  margin: 0 20px;
+  flex-grow: 1;
+}
+
+.search-bar input {
+  width: 100%;
+  padding: 8px 12px;
+  border-radius: 20px;
+  border: none;
+  background-color: #2a2a2a;
+  color: white;
+}
+
+.search-bar input::placeholder {
+  color: #aaa;
 }
 </style>
