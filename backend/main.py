@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from routers import comic_router, aftor_router
 
 app = FastAPI()
 
@@ -11,6 +12,5 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-@app.get("/api/hello")
-async def hello():
-    return {"message": "Hello from FastAPI"}
+app.include_router(comic_router, prefix="/api", tags=["api"])
+app.include_router(aftor_router, prefix="/api", tags=["api"])

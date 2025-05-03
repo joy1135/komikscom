@@ -1,76 +1,103 @@
-from sqlalchemy.orm import Session
+import asyncio
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import sessionmaker
 from database import engine
 import models as m
+from datetime import date
 
-m.Base.metadata.drop_all(bind=engine)
-m.Base.metadata.create_all(bind=engine)
+async def seed():
+    async with engine.begin() as conn:
+        await conn.run_sync(m.Base.metadata.drop_all)
+        await conn.run_sync(m.Base.metadata.create_all)
 
-with Session(bind=engine) as session:
-    role1 = m.Role(name="Admin")
-    role2 = m.Role(name="User")
-    session.add_all([role1, role2])
-    session.flush()
+    async_session = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
-    user1 = m.User(
-        email="user1@example.com",
-        nick="user1",
-        password="password1",
-        roleId=role1.id
-    )
-    user2 = m.User(
-        email="user2@example.com",
-        nick="user2",
-        password="password2",
-        roleId=role2.id
-    )
-    session.add_all([user1, user2])
-    session.flush()
+    async with async_session() as session:
+        # Создаем роли
+        admin_role = m.Role(name="Admin")
+        user_role = m.Role(name="User")
+        aftor_role = m.Role(name = "Aftor")
+        session.add_all([admin_role, user_role, aftor_role])
+        await session.flush()
 
-    genre1 = m.Genre(name="Fantasy")
-    genre2 = m.Genre(name="Adventure")
-    session.add_all([genre1, genre2])
-    session.flush()
+        admin_user = m.User(
+            email="admin@example.com",
+            nick="admin",
+            password="admin123",
+            roleId=admin_role.id
+        )
+        regular_user = m.User(
+            email="user@example.com",
+            nick="user",
+            password="user123",
+            roleId=user_role.id
+        )
+        aftor_user = m.User(
+            email="aftor@example.com",
+            nick="aftor",
+            password="aftor123",
+            roleId=aftor_role.id
+        )
+        session.add_all([admin_user, regular_user, aftor_user])
+        await session.flush()
 
-    comic1 = m.Comic(
-        title="Комикс 1",
-        image="image1.jpg",
-        date_of_out="2025-04-28",
-        userID=user1.id
-    )
-    comic2 = m.Comic(
-        title="Комикс 2",
-        image="image2.jpg",
-        date_of_out="2025-05-01",
-        userID=user2.id
-    )
-    session.add_all([comic1, comic2])
-    session.flush() 
+        # Создаем жанры
+        fantasy = m.Genre(name="Fantasy")
+        adventure = m.Genre(name="Adventure")
+        scifi = m.Genre(name="Sci-Fi")
+        session.add_all([fantasy, adventure, scifi])
+        await session.flush()
 
-    comic1.genres.append(genre1)
-    comic2.genres.append(genre2)
+        # Создаем комиксы
+        comic1 = m.Comic(
+            title="Комикс 1",
+            image="comic1.jpg",
+            date_of_out=date(2023, 1, 15),
+            userID=admin_user.id,
+            website_recommendation = True
+        )
+        comic2 = m.Comic(
+            title="Комикс 2",
+            image="comic2.jpg",
+            date_of_out=date(2023, 2, 20),
+            userID=aftor_user.id,
+            website_recommendation = False
+        )
+        session.add_all([comic1, comic2])
+        await session.flush()
 
-    rating1 = m.Rating(
-        user_id=user1.id,
-        comic_id=comic1.id,
-        value=8
-    )
-    rating2 = m.Rating(
-        user_id=user2.id,
-        comic_id=comic1.id,
-        value=9
-    )
-    session.add_all([rating1, rating2])
+        # Связываем комиксы с жанрами через ассоциативную таблицу
+        session.add_all([
+            m.ComicGenre(comic_id=comic1.id, genre_id=fantasy.id),
+            m.ComicGenre(comic_id=comic1.id, genre_id=adventure.id),
+            m.ComicGenre(comic_id=comic2.id, genre_id=scifi.id)
+        ])
+        await session.flush()
 
-    comment1 = m.Comment(
-        userID=user1.id,
-        comicID=comic1.id,
-        comment="Отличный комикс!"
-    )
-    comment2 = m.Comment(
-        userID=user2.id,
-        comicID=comic2.id,
-        comment="Интересная история."
-    )
-    session.add_all([comment1, comment2])
-    
-    session.commit()
+        # Создаем оценки
+        ratings = [
+            m.Rating(user_id=admin_user.id, comic_id=comic1.id, value=9),
+            m.Rating(user_id=regular_user.id, comic_id=comic1.id, value=8),
+            m.Rating(user_id=regular_user.id, comic_id=comic2.id, value=7)
+        ]
+        session.add_all(ratings)
+
+        # Создаем комментарии
+        comments = [
+            m.Comment(
+                userID=admin_user.id,
+                comicID=comic1.id,
+                comment="Отличный комикс! Рекомендую!"
+            ),
+            m.Comment(
+                userID=regular_user.id,
+                comicID=comic2.id,
+                comment="Интересный сюжет, но концовка слабовата"
+            )
+        ]
+        session.add_all(comments)
+
+        await session.commit()
+
+if __name__ == "__main__":
+    asyncio.run(seed())
