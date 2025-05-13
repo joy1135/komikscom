@@ -4,17 +4,23 @@
 <template>
 <header class="header">
   <div class="logo">
+    <RouterLink to="/about" class="cursor-pointer">
     <div class="logo-star">★</div>
+  </RouterLink>
   </div>
   <nav>
-    <div>Каталог</div>
+    <RouterLink to="/catalogue" class="cursor-pointer">
+  Каталог
+</RouterLink>
     <div>Любимое</div>
   </nav>
   <div class="search-bar">
     <input type="text" placeholder="Поиск">
   </div>
   <nav>
+    <RouterLink to="/auth" class="cursor-pointer">
     <div>Вход</div>
+  </RouterLink>
   </nav>
 </header>
 </template>
