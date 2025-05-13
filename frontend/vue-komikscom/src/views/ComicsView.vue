@@ -7,7 +7,7 @@
     ></div>
 
     <div class="max-w-6xl mx-auto -mt-20 flex gap-6 p-6">
-      <!-- Sidebar -->
+     
       <div class="w-1/4 bg-black p-4 rounded-lg shadow">
         <img
           :src="comics.cover"
@@ -32,7 +32,7 @@
         </div>
       </div>
 
-      <!-- Right Content -->
+      
       <div class="flex-1 bg-neutral-900 p-6 rounded-lg shadow">
         <div class="flex justify-between items-center mb-4">
           <h1 class="text-2xl font-bold">{{ comics.title }}</h1>
