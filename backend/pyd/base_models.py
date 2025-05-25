@@ -1,6 +1,8 @@
 from datetime import date, datetime
 from typing import List, Optional
-from pydantic import BaseModel, Field, conint
+from pydantic import BaseModel, Field
+
+# === Базовые модели ===
 
 class GenreBase(BaseModel):
     name: str = Field(..., example="Fantasy", max_length=255)
@@ -14,9 +16,8 @@ class UserBase(BaseModel):
 
 class ComicBase(BaseModel):
     title: str = Field(..., example="Awesome Comic", max_length=255)
-    image: str = Field(..., example="comic1.jpg", max_length=255)
     date_of_out: date = Field(..., example="2023-01-15")
-    website_recommendation: bool = Field(..., example="True")
+    website_recommendation: bool = Field(..., example=True)
 
 class CommentBase(BaseModel):
     comment: str = Field(..., example="Great comic!", max_length=255)
@@ -24,32 +25,59 @@ class CommentBase(BaseModel):
 class RatingBase(BaseModel):
     value: int = Field(..., ge=0, le=10, example=8)
 
+class PageResponse(BaseModel):
+    id: int
+    number: int = Field(..., example=1)
+    image_url: str = Field(..., example="comics/Комикс 1/comic/vl1/ch1/1.jpg")
+
+    class Config:
+        from_attributes = True
+
+class ChapterResponse(BaseModel):
+    id: int
+    number: int = Field(..., example=1)
+    title: Optional[str] = Field(None, example="Начало")
+    pages: List[PageResponse] = []
+
+    class Config:
+        from_attributes = True
+
+class VolumeResponse(BaseModel):
+    id: int
+    number: int = Field(..., example=1)
+    chapters: List[ChapterResponse] = []
+
+    class Config:
+        from_attributes = True
+
+# === Ответные модели ===
+
 class GenreResponse(GenreBase):
     id: int = Field(..., example=1)
-    
     class Config:
         from_attributes = True
 
 class RoleResponse(RoleBase):
     id: int = Field(..., example=1)
-    
     class Config:
         from_attributes = True
 
-class UserResponse(UserBase):
-    id: int = Field(..., example=1)
-    role: 'RoleResponse'
-    
+class UserResponse(BaseModel):
+    id: int
+    email: str
+    nick: str
+
     class Config:
         from_attributes = True
 
 class ComicResponse(ComicBase):
     id: int = Field(..., example=1)
     userID: int = Field(..., example=1)
-    average_rating: Optional[float] = Field(None, example=4.5, ge=0, le=10)
+    average_rating: Optional[float] = Field(None, example=4.5)
     user: UserResponse
-    genres: List[GenreResponse] = Field(default=[])
-    
+    genres: List[GenreResponse] = []
+    volumes: List[VolumeResponse] = []
+
     class Config:
         from_attributes = True
 
@@ -58,7 +86,6 @@ class CommentResponse(CommentBase):
     created_at: datetime = Field(..., example="2023-01-15T12:00:00")
     user: UserResponse
     comic: ComicBase
-    
     class Config:
         from_attributes = True
 
@@ -67,9 +94,19 @@ class RatingResponse(RatingBase):
     rated_at: datetime = Field(..., example="2023-01-15T12:00:00")
     user: UserBase
     comic: ComicBase
-    
     class Config:
         from_attributes = True
+
+class Token(BaseModel):
+    access_token: str
+    token_type: str
+
+class TokenData(BaseModel):
+    email: str | None = None
+
+class UserLogin(BaseModel):
+    email: str
+    password: str
 
 UserResponse.model_rebuild()
 ComicResponse.model_rebuild()

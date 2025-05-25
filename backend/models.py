@@ -1,6 +1,13 @@
-from sqlalchemy import Date, Column, ForeignKey, Integer, String, UniqueConstraint, Boolean
+from sqlalchemy import Date, Column, ForeignKey, Integer, String, UniqueConstraint, Boolean, Table
 from sqlalchemy.orm import relationship
 from database import Base
+
+user_favorite_comics = Table(
+    "user_favorite_comics",
+    Base.metadata,
+    Column("user_id", Integer, ForeignKey("users.id", ondelete="CASCADE"), primary_key=True),
+    Column("comic_id", Integer, ForeignKey("comics.id", ondelete="CASCADE"), primary_key=True)
+)
 
 class ComicGenre(Base):
     __tablename__ = "comic_genres"
@@ -10,14 +17,48 @@ class ComicGenre(Base):
 class Comic(Base):
     __tablename__ = "comics"
     id = Column(Integer, primary_key=True)
-    image = Column(String(255), nullable=False)
     title = Column(String(255), unique=True, nullable=False)
     date_of_out = Column(Date, nullable=False)
     userID = Column(Integer, ForeignKey("users.id"), nullable=False)
-    website_recommendation = Column(Boolean, nullable = False)
+    website_recommendation = Column(Boolean, nullable=False)
 
     user = relationship("User", backref="comics")
     genres = relationship("Genre", secondary="comic_genres", backref="comics", lazy='selectin')
+    volumes = relationship("Volume", back_populates="comic", cascade="all, delete-orphan", lazy="selectin")
+    favorited_by_users = relationship(
+        "User",
+        secondary="user_favorite_comics",
+        back_populates="favorite_comics",
+        lazy="selectin"
+    )
+
+class Volume(Base):
+    __tablename__ = "volumes"
+    id = Column(Integer, primary_key=True)
+    number = Column(Integer, nullable=False)
+    comic_id = Column(Integer, ForeignKey("comics.id"), nullable=False)
+
+    comic = relationship("Comic", back_populates="volumes")
+    chapters = relationship("Chapter", back_populates="volume", cascade="all, delete-orphan", lazy="selectin")
+    
+class Chapter(Base):
+    __tablename__ = "chapters"
+    id = Column(Integer, primary_key=True)
+    number = Column(Integer, nullable=False)
+    title = Column(String(255), nullable=True)
+    volume_id = Column(Integer, ForeignKey("volumes.id"), nullable=False)
+
+    volume = relationship("Volume", back_populates="chapters")
+    pages = relationship("Page", back_populates="chapter", cascade="all, delete-orphan", lazy="selectin")
+    
+class Page(Base):
+    __tablename__ = "pages"
+    id = Column(Integer, primary_key=True)
+    number = Column(Integer, nullable=False)
+    image_url = Column(String(255), nullable=False)
+    chapter_id = Column(Integer, ForeignKey("chapters.id"), nullable=False)
+
+    chapter = relationship("Chapter", back_populates="pages")
 
 class Genre(Base):
     __tablename__ = "genres"
@@ -29,16 +70,23 @@ class User(Base):
     id = Column(Integer, primary_key=True)
     email = Column(String(255), unique=True, nullable=False)
     nick = Column(String(255), unique=True, nullable=False)
-    password = Column(String(255), nullable=False)  # Убрал unique=True
+    password = Column(String(255), nullable=False) 
     roleId = Column(Integer, ForeignKey('roles.id'), nullable=False)
 
     role = relationship("Role", backref="users")
+
+    favorite_comics = relationship(
+        "Comic",
+        secondary="user_favorite_comics",
+        back_populates="favorited_by_users",
+        lazy="selectin"
+    )
 
 class Comment(Base):
     __tablename__ = "comments"
     id = Column(Integer, primary_key=True)
     userID = Column(Integer, ForeignKey('users.id'), nullable=False)
-    comment = Column(String(255), nullable=False)  # Убрал unique=True
+    comment = Column(String(255), nullable=False) 
     comicID = Column(Integer, ForeignKey('comics.id'), nullable=False)
 
     user = relationship("User", backref="comments")

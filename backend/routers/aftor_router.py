@@ -48,7 +48,6 @@ async def get_new_authors(db: AsyncSession = Depends(get_db)):
         .order_by(
             last_comic_date.c.last_date.desc()
         )
-        .limit(3)
     )
     
     authors = result.scalars().all()
