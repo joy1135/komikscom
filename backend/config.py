@@ -8,7 +8,7 @@ class Settings(BaseSettings):
     DB_PASSWORD: str = "password"
     DB_NAME: str = "default"
     
-    SECRET_KEY: str = "qwerty"  
+    SECRET_KEY: str  
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
 
