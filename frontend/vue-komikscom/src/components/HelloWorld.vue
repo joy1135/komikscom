@@ -1,8 +1,33 @@
 <script setup>
+import { RouterLink } from 'vue-router'
+import { ref, onMounted } from 'vue'
+import { jwtDecode } from 'jwt-decode'
+
+
+const nickname = ref('Вход')
+
+const getNicknameFromToken = () => {
+  try {
+    const token = localStorage.getItem('access_token')
+    
+    if (token) {
+      const decoded = jwtDecode(token)
+      
+      nickname.value = decoded.sub || 'Вход'
+    }
+  } catch (error) {
+    console.error('Ошибка декодирования токена:', error)
+    nickname.value = 'Вход'
+  }
+}
+
+onMounted(getNicknameFromToken)
 </script>
 
 <template>
+
 <header class="header">
+  <div class="header-container">
   <div class="logo">
     <RouterLink to="/about" class="cursor-pointer">
     <div class="logo-star">★</div>
@@ -19,14 +44,19 @@
   </div>
   <nav>
     <RouterLink to="/auth" class="cursor-pointer">
-    <div>Вход</div>
+    <div>{{ nickname }}</div>
   </RouterLink>
   </nav>
+  </div>
 </header>
 </template>
 
 <style>
-.header {
+.header{
+  background-color: #1c1c1c;
+  max-width: 100%;
+}
+.header-container {
   margin-left: auto;
   margin-right:auto;
   display: flex;
