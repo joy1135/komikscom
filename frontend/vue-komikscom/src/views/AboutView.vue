@@ -3,7 +3,11 @@
     <!-- Top Recommendations -->
     <div class="top-releases">
       <div v-for="item in topReleases" :key="item.id" class="cover">
-        <img :src="item.cover_url" alt="Cover" />
+        <img 
+          :src="getFullImageUrl(item.img)" 
+          @error="handleImageError"
+          alt="Cover" 
+        />
       </div>
     </div>
 
@@ -11,9 +15,14 @@
       <h2>Новинки</h2>
       <div class="new-releases">
         <div v-for="item in newReleases" :key="item.id" class="release-item">
-          <img :src="item.cover_url" alt="Cover" />
+          <img 
+            :src="getFullImageUrl(item.img)" 
+            @error="handleImageError"
+            alt="Cover" 
+          />
           <div class="info">
             <div>{{ item.title }}</div>
+            <div class="author">{{ getAuthorName(item.userID) }}</div>
           </div>
         </div>
       </div>
@@ -27,8 +36,12 @@
       <h2>Новые авторы</h2>
       <div class="new-authors">
         <div v-for="author in newAuthors" :key="author.id" class="author-card">
-          <img :src="author.avatar_url || 'https://dummyimage.com/80'" alt="Avatar" />
-          <div class="nick">{{ author.nick }}</div>
+          <img 
+            :src="getFullImageUrl(author.avatar_url)" 
+            @error="handleAvatarError"
+            alt="Avatar" 
+          />
+          <div class="nick">{{ author.nickname }}</div>
         </div>
       </div>
     </div>
@@ -36,6 +49,7 @@
 </template>
 
 <style scoped>
+/* Стили без изменений */
 .main-page {
   background: white;
   padding: 20px;
@@ -108,45 +122,83 @@
   border-radius: 50%;
 }
 </style>
+
 <script setup>
 import { ref, onMounted } from 'vue'
 
-const topReleases = ref([]) // Для рекомендаций
-const newReleases = ref([]) // Для новинок
-const newAuthors = ref([])  // Для новых авторов
-const banner = ref(null)
-const authorsMap = ref({})  // Для хранения информации об авторах
+const API_BASE_URL = import.meta.env.VITE_API_URL1;
 
+const API_URL = import.meta.env.VITE_API_URL;
+
+const topReleases = ref([]);
+const newReleases = ref([]);
+const newAuthors = ref([]);
+const banner = ref(null);
+const authorsMap = ref({});
+
+const getFullImageUrl = (imgPath) => {
+  if (!imgPath) return '';
+  
+  // Если путь уже является абсолютным URL
+  if (imgPath.startsWith('http://') || imgPath.startsWith('https://')) {
+    return imgPath;
+  }
+  
+  // Если путь начинается с двойного слеша (//example.com)
+  if (imgPath.startsWith('//')) {
+    return window.location.protocol + imgPath;
+  }
+  
+  // Если путь абсолютный (начинается с /)
+  if (imgPath.startsWith('/')) {
+    return API_BASE_URL + imgPath;
+  }
+  
+  // Относительный путь
+  return API_BASE_URL +"/"+ imgPath;
+};
+
+const handleImageError = (event) => {
+  console.error('Ошибка загрузки изображения:', event.target.src);
+  event.target.src = 'https://dummyimage.com/100x150/000/fff&text=Cover+Error';
+};
+
+const handleAvatarError = (event) => {
+  console.error('Ошибка загрузки аватара:', event.target.src);
+  event.target.src = 'https://dummyimage.com/80/000/fff&text=Avatar+Error';
+};
 
 const fetchData = async () => {
   try {
-    // Запрос для топовых рекомендаций
-    const topResponse = await fetch(`${import.meta.env.VITE_API_URL}/comic/recomm`)
-    topReleases.value = await topResponse.json()
+    // Запросы к API
+    const [topRes, newRes, authorsRes] = await Promise.all([
+      fetch(`${API_URL}/comic/recomm`),
+      fetch(`${API_URL}/comic/new_5`),
+      fetch(`${API_URL}/aftor/new_authors`)
+    ]);
     
-    // Запрос для новинок
-    const newResponse = await fetch(`${import.meta.env.VITE_API_URL}/comic/new_5`)
-    newReleases.value = await newResponse.json()
+    topReleases.value = await topRes.json();
+    newReleases.value = await newRes.json();
+    newAuthors.value = await authorsRes.json();
     
-    // Запрос для новых авторов
-    const authorsResponse = await fetch(`${import.meta.env.VITE_API_URL}/aftor/new_authors`)
-    newAuthors.value = await authorsResponse.json()
+    // Логирование для отладки
+    console.log("Top Releases:", topReleases.value);
+    console.log("New Releases:", newReleases.value);
+    console.log("New Authors:", newAuthors.value);
     
-    
+    // Создаем карту авторов
     newAuthors.value.forEach(author => {
-      authorsMap.value[author.id] = author
-    })
+      authorsMap.value[author.id] = author;
+    });
     
-    console.log('Данные успешно загружены')
   } catch (error) {
-    console.error('Ошибка при загрузке данных:', error)
+    console.error('Ошибка при загрузке данных:', error);
   }
 }
 
-
 const getAuthorName = (userId) => {
-  return authorsMap.value[userId]?.nickname || 'Неизвестный автор'
+  return authorsMap.value[userId]?.nickname || 'Неизвестный автор';
 }
 
-onMounted(fetchData)
+onMounted(fetchData);
 </script>

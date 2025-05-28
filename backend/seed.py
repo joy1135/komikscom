@@ -61,14 +61,14 @@ async def seed():
 
         # Comics
         comic1 = m.Comic(
-            title="Комикс 1",
+            title="Комикс1",
             date_of_out=date(2023, 1, 15),
             userID=admin_user.id,
             website_recommendation=True,
             img=""
         )
         comic2 = m.Comic(
-            title="Комикс 2",
+            title="Комикс2",
             date_of_out=date(2023, 2, 20),
             userID=aftor_user.id,
             website_recommendation=False,
