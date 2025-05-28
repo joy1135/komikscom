@@ -33,7 +33,7 @@ class UserCreate(BaseModel):
 class ComicCreate(ComicBase):
     userID: int = Field(..., example=1)
     genre_ids: List[int] = Field(default=[], example=[1, 2])
-
+    
     volume_ids: List[int] = Field(default=[], example=[1, 2])
     chapter_ids: List[int] = Field(default=[], example=[1, 2])
 

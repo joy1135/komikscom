@@ -18,6 +18,11 @@ class ComicBase(BaseModel):
     title: str = Field(..., example="Awesome Comic", max_length=255)
     date_of_out: date = Field(..., example="2023-01-15")
     website_recommendation: bool = Field(..., example=True)
+    img: str =Field(...)
+    average_rating: Optional[float] = None
+
+    class Config:
+        from_attributes = True
 
 class CommentBase(BaseModel):
     comment: str = Field(..., example="Great comic!", max_length=255)
