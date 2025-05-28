@@ -1,55 +1,56 @@
 <script setup>
-import { RouterLink } from 'vue-router'
-import { ref, onMounted } from 'vue'
-import { jwtDecode } from 'jwt-decode'
+import { RouterLink,useRouter } from 'vue-router'
+import { useAuthStore } from '@/stores/auth'
+import { onMounted } from 'vue'
 
+const authStore = useAuthStore()
+const router = useRouter()
 
-const nickname = ref('Вход')
+onMounted(() => {
+  authStore.initAuthState()
+})
 
-const getNicknameFromToken = () => {
-  try {
-    const token = localStorage.getItem('access_token')
-    
-    if (token) {
-      const decoded = jwtDecode(token)
-      
-      nickname.value = decoded.sub || 'Вход'
-    }
-  } catch (error) {
-    console.error('Ошибка декодирования токена:', error)
-    nickname.value = 'Вход'
-  }
+const logout = () => {
+  authStore.logout()
+  router.push('/')
 }
-
-onMounted(getNicknameFromToken)
 </script>
 
 <template>
-
-<header class="header">
-  <div class="header-container">
-  <div class="logo">
-    <RouterLink to="/about" class="cursor-pointer">
-    <div class="logo-star">★</div>
-  </RouterLink>
-  </div>
-  <nav>
-    <RouterLink to="/catalogue" class="cursor-pointer">
-  Каталог
-</RouterLink>
-    <div>Любимое</div>
-  </nav>
-  <div class="search-bar">
-    <input type="text" placeholder="Поиск">
-  </div>
-  <nav>
-    <RouterLink to="/auth" class="cursor-pointer">
-    <div>{{ nickname }}</div>
-  </RouterLink>
-  </nav>
-  </div>
-</header>
+  <header class="header">
+    <div class="header-container">
+      <div class="logo">
+        <RouterLink to="/" class="cursor-pointer">
+          <div class="logo-star">★</div>
+        </RouterLink>
+      </div>
+      <nav>
+        <RouterLink to="/catalogue" class="cursor-pointer">
+          Каталог
+        </RouterLink>
+        <div>Любимое</div>
+      </nav>
+      <div class="search-bar">
+        <input type="text" placeholder="Поиск">
+      </div>
+      <nav class="auth-nav">
+        <template v-if="authStore.isLoggedIn">
+          <div class="user-info">
+            <span>{{ authStore.nickname }}</span>
+            <button @click="logout" class="logout-button">Выйти</button>
+          </div>
+        </template>
+        <template v-else>
+          <RouterLink to="/auth" class="cursor-pointer">
+            <div>Вход</div>
+          </RouterLink>
+        </template>
+      </nav>
+    </div>
+  </header>
 </template>
+
+
 
 <style>
 .header{
@@ -108,5 +109,43 @@ nav {
 
 .search-bar input::placeholder {
   color: #aaa;
+}
+.auth-nav {
+  position: relative;
+}
+
+.user-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.logout-button {
+  background: #2a2a2a;
+  color: #aaa;
+  border: none;
+  border-radius: 4px;
+  padding: 5px 10px;
+  cursor: pointer;
+  font-size: 0.8rem;
+  transition: all 0.3s ease;
+}
+
+.logout-button:hover {
+  background: #3a3a3a;
+  color: white;
+}
+
+/* Для мобильной адаптации */
+@media (max-width: 768px) {
+  .user-info {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 5px;
+  }
+  
+  .logout-button {
+    padding: 3px 8px;
+  }
 }
 </style>
