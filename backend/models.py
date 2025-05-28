@@ -21,7 +21,7 @@ class Comic(Base):
     date_of_out = Column(Date, nullable=False)
     userID = Column(Integer, ForeignKey("users.id", ondelete='CASCADE'), nullable=False)
     website_recommendation = Column(Boolean, nullable=False)
-
+    img = Column(String(255), nullable=False)
     user = relationship("User", backref="comics")
     genres = relationship("Genre", secondary="comic_genres", backref="comics", lazy='selectin')
     volumes = relationship("Volume", back_populates="comic", cascade="all, delete-orphan", lazy="selectin")

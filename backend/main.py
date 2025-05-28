@@ -28,3 +28,4 @@ async def on_startup():
 app.include_router(comic_router, prefix="/api", tags=["api"])
 app.include_router(aftor_router, prefix="/api", tags=["api"])
 app.include_router(user_router, prefix="/api", tags=["api"])
+app.include_router(genre_router, prefix="/api", tags=["api"])
