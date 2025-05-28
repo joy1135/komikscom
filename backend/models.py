@@ -19,7 +19,7 @@ class Comic(Base):
     id = Column(Integer, primary_key=True)
     title = Column(String(255), unique=True, nullable=False)
     date_of_out = Column(Date, nullable=False)
-    userID = Column(Integer, ForeignKey("users.id"), nullable=False)
+    userID = Column(Integer, ForeignKey("users.id", ondelete='CASCADE'), nullable=False)
     website_recommendation = Column(Boolean, nullable=False)
 
     user = relationship("User", backref="comics")
@@ -31,6 +31,8 @@ class Comic(Base):
         back_populates="favorite_comics",
         lazy="selectin"
     )
+    def __str__(self):
+        return self.title
 
 class Volume(Base):
     __tablename__ = "volumes"
@@ -64,6 +66,9 @@ class Genre(Base):
     __tablename__ = "genres"
     id = Column(Integer, primary_key=True)
     name = Column(String(255), nullable=False, unique=True)
+    
+    def __str__(self):
+        return self.name
 
 class User(Base):
     __tablename__ = "users"
@@ -81,6 +86,9 @@ class User(Base):
         back_populates="favorited_by_users",
         lazy="selectin"
     )
+    
+    def __str__(self):
+        return self.email
 
 class Comment(Base):
     __tablename__ = "comments"
@@ -91,11 +99,17 @@ class Comment(Base):
 
     user = relationship("User", backref="comments")
     comic = relationship("Comic", backref="comments")
+    
+    def __str__(self):
+        return self.comment
 
 class Role(Base):
     __tablename__ = "roles"
     id = Column(Integer, primary_key=True)
     name = Column(String(255), unique=True, nullable=False)
+    
+    def __str__(self):
+        return self.name
 
 class Rating(Base):
     __tablename__ = "ratings"
@@ -110,3 +124,7 @@ class Rating(Base):
     __table_args__ = (
         UniqueConstraint('user_id', 'comic_id', name='_user_comic_uc'),
     )
+    
+    def __str__(self):
+        return str(self.value)
+  

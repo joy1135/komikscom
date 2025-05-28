@@ -14,7 +14,6 @@ engine = create_async_engine(
     echo=True  
 )
 
-# Асинхронная фабрика сессий
 AsyncSessionLocal = async_sessionmaker(
     bind=engine,
     class_=AsyncSession,
