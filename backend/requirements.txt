@@ -1,0 +1,10 @@
+sqlalchemy
+bcrypt
+fastapi
+sqladmin[full]
+asyncpg
+python-jose[cryptography] 
+passlib
+pydantic_settings
+pydantic
+fastapi[standard]
