@@ -2,7 +2,7 @@ from fastapi import FastAPI, HTTPException, Depends, APIRouter, UploadFile, Quer
 from fastapi.middleware.cors import CORSMiddleware
 from database import get_db
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import label, select, desc, func, asc
+from sqlalchemy import label, select, desc, func, asc, nullslast
 from sqlalchemy.orm import selectinload, joinedload
 import models as m
 from typing import List, Optional
@@ -20,49 +20,37 @@ async def get_all_comics(db: AsyncSession = Depends(get_db)):
     comics_list = comics.scalars().all()
     return comics_list
 
-@router.get("/popular", response_model=List[pyd.ComicBase])
-async def get_all_comics_popular(db: AsyncSession = Depends(get_db)):
-    result = await db.execute(
-        select(m.Comic)
-        .outerjoin(m.Rating)  
-        .group_by(m.Comic.id)
-        .order_by(desc(func.count(m.Rating.id)))
-    )
-    comics = result.unique().scalars().all()
-    return comics
 
 @router.get("/comics", response_model=List[pyd.ComicBase])
 async def get_comics(
     genres: List[int] = Query(default=[]),
     min_rating: Optional[float] = Query(default=None, ge=0.0, le=10.0),
     sort: Optional[str] = Query(default="avg_rating", enum=["asc", "avg_rating", "popular"]),
+    page: int = Query(default=1, ge=1),
+    limit: int = Query(default=10, ge=1, le=30),  
     db: AsyncSession = Depends(get_db)
 ):
     avg_rating = func.avg(m.Rating.value).label("avg_rating")
     rating_count = func.count(m.Rating.id).label("rating_count")
 
     stmt = select(m.Comic, avg_rating, rating_count).outerjoin(m.Rating)
-
     if genres:
         stmt = stmt.join(m.Comic.genres).where(m.Genre.id.in_(genres))
-
     stmt = stmt.group_by(m.Comic.id)
-
     if min_rating is not None:
         stmt = stmt.having(avg_rating >= min_rating)
-
     if sort == "asc":
         stmt = stmt.order_by(asc(m.Comic.title))
     elif sort == "popular":
-        stmt = stmt.order_by(desc(rating_count))
-    else:
-        stmt = stmt.order_by(desc(avg_rating))
-
+        stmt = stmt.order_by(desc(rating_count), nullslast(desc(avg_rating)))
+    else:  
+        stmt = stmt.order_by(nullslast(desc(avg_rating))) 
     stmt = stmt.options(selectinload(m.Comic.genres))
+    offset = (page - 1) * limit
+    stmt = stmt.offset(offset).limit(limit)
 
     result = await db.execute(stmt)
     rows = result.all()
-
     return [
         {
             **pyd.ComicBase.from_orm(row[0]).dict(),
@@ -71,7 +59,20 @@ async def get_comics(
         }
         for row in rows
     ]
+    
+@router.get("/search", response_model=List[pyd.ComicBase])
+async def search_comics_by_title(
+    title: Optional[str] = Query(None),
+    db: AsyncSession = Depends(get_db),
+):
+    stmt = select(m.Comic).options(selectinload(m.Comic.genres))
 
+    if title:
+        stmt = stmt.where(m.Comic.title.ilike(f"%{title}%"))
+
+    result = await db.execute(stmt)
+    comics = result.scalars().all()
+    return comics
 
 @router.get("/recomm", response_model=List[pyd.ComicBase])
 async def get_all_comics_reccom(db: AsyncSession = Depends(get_db)):
