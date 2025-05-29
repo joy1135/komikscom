@@ -35,7 +35,14 @@ const router = createRouter({
   path: '/auth',
   name: 'auth',
   component: () => import('../views/AuthView.vue'),
-}
+}    ,{
+      path: '/favourite',
+      name: 'favourite',
+      // route level code-splitting
+      // this generates a separate chunk (About.[hash].js) for this route
+      // which is lazy-loaded when the route is visited.
+      component: () => import('../views/FavView.vue'),
+    },
   ],
 })
 

@@ -6,7 +6,7 @@
         <h2 class="text-xl font-bold">Каталог</h2>
         <select
           v-model="sortOption"
-          @change="applyFilters"
+          @change="applyFilters(true)"
           class="bg-gray-700 text-white px-4 py-1 rounded"
         >
           <option disabled value="">Сортировка</option>
@@ -19,27 +19,52 @@
       <input
         type="text"
         v-model="searchQuery"
+        @input="applyFilters(true)"
         placeholder="Поиск по названию"
         class="w-full p-2 rounded bg-neutral-800 text-white"
       />
 
       <div class="grid grid-cols-5 gap-4 mt-4">
         <div
-          v-for="comic in filteredComics"
+          v-for="comic in comics"
           :key="comic.id"
           class="bg-black p-2 rounded shadow-md flex flex-col items-center"
         >
           <img
             :src="getFullImageUrl(comic.img)" 
             @error="handleImageError"
-            alt="Cover" 
+            alt="Cover"
+            class="w-full h-48 object-cover"
           />
           <div class="mt-2 text-center">
             <div class="font-bold text-sm">{{ comic.title }}</div>
             <div class="text-xs text-gray-400">{{ comic.author }}</div>
-            <div class="text-xs text-yellow-400 mt-1">★ {{ comic.average_rating ?? "—" }}</div>
+            <div class="text-xs text-yellow-400 mt-1">
+              ★ {{ comic.average_rating ?? "—" }}
+            </div>
           </div>
         </div>
+      </div>
+
+      <!-- Пагинация -->
+      <div class="flex justify-center mt-6 space-x-2">
+        <button
+          @click="prevPage"
+          :disabled="currentPage === 1"
+          class="px-4 py-2 bg-gray-700 rounded disabled:opacity-50 hover:bg-gray-600 transition"
+        >
+          Назад
+        </button>
+        <span class="px-4 py-2 bg-gray-800 rounded">
+          Страница {{ currentPage }}
+        </span>
+        <button
+          @click="nextPage"
+          :disabled="!hasNextPage"
+          class="px-4 py-2 bg-gray-700 rounded disabled:opacity-50 hover:bg-gray-600 transition"
+        >
+          Вперед
+        </button>
       </div>
     </div>
 
@@ -98,7 +123,7 @@
 
         <div class="mt-6">
           <button
-            @click="applyFilters"
+            @click="applyFilters(true)"
             class="w-full bg-red-600 hover:bg-red-700 text-white py-2 px-4 rounded transition"
           >
             Применить фильтры
@@ -110,7 +135,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed } from 'vue';
+import { ref, onMounted } from 'vue';
 
 const apiUrl = import.meta.env.VITE_API_URL;
 const API_BASE_URL = import.meta.env.VITE_API_URL1;
@@ -123,27 +148,30 @@ const genresError = ref('');
 const comics = ref([]);
 const sortOption = ref('');
 const searchQuery = ref('');
+
+// Пагинация
+const currentPage = ref(1);
+const itemsPerPage = ref(5);
+const hasNextPage = ref(false);
+
 const getFullImageUrl = (imgPath) => {
   if (!imgPath) return '';
   
-  // Если путь уже является абсолютным URL
   if (imgPath.startsWith('http://') || imgPath.startsWith('https://')) {
     return imgPath;
   }
   
-  // Если путь начинается с двойного слеша (//example.com)
   if (imgPath.startsWith('//')) {
     return window.location.protocol + imgPath;
   }
   
-  // Если путь абсолютный (начинается с /)
   if (imgPath.startsWith('/')) {
     return API_BASE_URL + imgPath;
   }
   
-  // Относительный путь
-  return API_BASE_URL +"/"+ imgPath;
+  return API_BASE_URL + "/" + imgPath;
 };
+
 const handleImageError = (event) => {
   console.error('Ошибка загрузки изображения:', event.target.src);
   event.target.src = 'https://dummyimage.com/100x150/000/fff&text=Cover+Error';
@@ -161,12 +189,73 @@ function resetFilters() {
   selectedGenres.value = [];
   minRating.value = null;
   searchQuery.value = '';
+  sortOption.value = '';
+  currentPage.value = 1;
   applyFilters();
+}
+
+async function applyFilters(resetPage = false) {
+  if (resetPage) {
+    currentPage.value = 1;
+  }
+  
+  try {
+    const params = new URLSearchParams();
+
+    selectedGenres.value.forEach(g => params.append('genres', g));
+    
+    if (minRating.value !== null) {
+      params.append('min_rating', minRating.value);
+    }
+    
+    if (sortOption.value) {
+      params.append('sort', sortOption.value);
+    }
+    
+    if (searchQuery.value.trim() !== '') {
+      params.append('search', searchQuery.value.trim());
+    }
+    
+    params.append('page', currentPage.value);
+    params.append('limit', itemsPerPage.value);
+
+    const response = await fetch(`${apiUrl}/comic/comics?${params.toString()}`);
+    
+    if (!response.ok) {
+      throw new Error(`Ошибка HTTP: ${response.status}`);
+    }
+    
+    const data = await response.json();
+    comics.value = data;
+    
+    hasNextPage.value = data.length === itemsPerPage.value;
+  } catch (err) {
+    console.error('Ошибка при получении комиксов:', err);
+    comics.value = [];
+    hasNextPage.value = false;
+  }
+}
+
+function nextPage() {
+  currentPage.value++;
+  applyFilters();
+}
+
+function prevPage() {
+  if (currentPage.value > 1) {
+    currentPage.value--;
+    applyFilters();
+  }
 }
 
 async function fetchGenres() {
   try {
     const response = await fetch(`${apiUrl}/genre`);
+    
+    if (!response.ok) {
+      throw new Error(`Ошибка HTTP: ${response.status}`);
+    }
+    
     const data = await response.json();
 
     let rawGenres = [];
@@ -182,6 +271,7 @@ async function fetchGenres() {
       name: g.name ?? "Без названия"
     }));
   } catch (err) {
+    console.error('Ошибка при загрузке жанров:', err);
     genresError.value = 'Не удалось загрузить жанры';
     genres.value = [
       { id: 1, name: 'Спорт' },
@@ -193,37 +283,9 @@ async function fetchGenres() {
   }
 }
 
-async function applyFilters() {
-  try {
-    const params = new URLSearchParams();
-
-    selectedGenres.value.forEach(g => params.append('genres', g));
-    if (minRating.value !== null) {
-      params.append('min_rating', minRating.value);
-    }
-    if (sortOption.value) {
-      params.append('sort', sortOption.value);
-    }
-
-    const response = await fetch(`${apiUrl}/comic/comics?${params.toString()}`);
-    const data = await response.json();
-    comics.value = data;
-  } catch (err) {
-    console.error('Ошибка при получении комиксов:', err);
-  }
-}
-
-const filteredComics = computed(() => {
-  const query = searchQuery.value.toLowerCase().trim();
-  if (!query) return comics.value;
-  return comics.value.filter(c =>
-    c.title?.toLowerCase().includes(query)
-  );
-});
-
 onMounted(() => {
   fetchGenres();
-  applyFilters(); // Загрузить при инициализации
+  applyFilters();
 });
 </script>
 
@@ -239,5 +301,11 @@ label {
 
 label:hover {
   background: #333;
+}
+
+img {
+  width: 100px;
+  height: 150px;
+  object-fit: cover;
 }
 </style>

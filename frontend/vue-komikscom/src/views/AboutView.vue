@@ -27,10 +27,8 @@
         </div>
       </div>
       
-      <div v-if="banner" class="banner">
-        <a :href="banner.link">
-          <img :src="banner.image_url" alt="Banner" />
-        </a>
+      <div class="banner">
+          <img src="@/assets/pics/banner.jpg" alt="Banner">
       </div>
 
       <h2>Новые авторы</h2>
@@ -96,7 +94,7 @@
   margin: auto;
 }
 .banner img {
-  width: 100%;
+  min-width: 85vw;
   border-radius: 10px;
   margin: 20px 0;
 }
