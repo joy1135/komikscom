@@ -31,38 +31,47 @@ async def get_all_comics_popular(db: AsyncSession = Depends(get_db)):
     comics = result.unique().scalars().all()
     return comics
 
-@router.get("/avg_rat", response_model=List[pyd.ComicBase])
-async def get_all_comics_avg_rat(db: AsyncSession = Depends(get_db)):
-    avg_rating = label("avg_rating", func.avg(m.Rating.value))
+@router.get("/comics", response_model=List[pyd.ComicBase])
+async def get_comics(
+    genres: List[int] = Query(default=[]),
+    min_rating: Optional[float] = Query(default=None, ge=0.0, le=10.0),
+    sort: Optional[str] = Query(default="avg_rating", enum=["asc", "avg_rating", "popular"]),
+    db: AsyncSession = Depends(get_db)
+):
+    avg_rating = func.avg(m.Rating.value).label("avg_rating")
+    rating_count = func.count(m.Rating.id).label("rating_count")
 
-    result = await db.execute(
-        select(m.Comic)
-        .outerjoin(m.Rating)
-        .options(joinedload(m.Comic.genres))
-        .group_by(m.Comic.id)
-        .order_by(desc(coalesce(avg_rating, 0)))
-    )
-    comics = result.unique().scalars().all()
-    return comics
+    stmt = select(m.Comic, avg_rating, rating_count).outerjoin(m.Rating)
 
-@router.get("/sort_asc", response_model=List[pyd.ComicBase])
-async def get_all_comics_sort_asc(db: AsyncSession = Depends(get_db)):
-    comics = await db.execute(select(m.Comic).order_by(asc(m.Comic.title))) 
-    comics_list = comics.scalars().all()
-    return comics_list
+    if genres:
+        stmt = stmt.join(m.Comic.genres).where(m.Genre.id.in_(genres))
 
-@router.get("/full_info", response_model=List[pyd.ComicResponse])
-async def get_all_info_comics(db: AsyncSession = Depends(get_db)):
-    result = await db.execute(
-        select(m.Comic).options(
-            selectinload(m.Comic.genres),
-            joinedload(m.Comic.user).options( 
-                joinedload(m.User.role)
-            )
-        )
-    )
-    comics = result.unique().scalars().all()
-    return comics
+    stmt = stmt.group_by(m.Comic.id)
+
+    if min_rating is not None:
+        stmt = stmt.having(avg_rating >= min_rating)
+
+    if sort == "asc":
+        stmt = stmt.order_by(asc(m.Comic.title))
+    elif sort == "popular":
+        stmt = stmt.order_by(desc(rating_count))
+    else:
+        stmt = stmt.order_by(desc(avg_rating))
+
+    stmt = stmt.options(selectinload(m.Comic.genres))
+
+    result = await db.execute(stmt)
+    rows = result.all()
+
+    return [
+        {
+            **pyd.ComicBase.from_orm(row[0]).dict(),
+            "average_rating": round(row[1], 2) if row[1] is not None else None,
+            "rating_count": row[2]
+        }
+        for row in rows
+    ]
+
 
 @router.get("/recomm", response_model=List[pyd.ComicBase])
 async def get_all_comics_reccom(db: AsyncSession = Depends(get_db)):
@@ -75,36 +84,6 @@ async def get_five_new_comics(db: AsyncSession = Depends(get_db)):
     comics = await db.execute(select(m.Comic).order_by(desc(m.Comic.date_of_out)).limit(5)) 
     comics_list = comics.scalars().all()
     return comics_list
-
-@router.get("/filter", response_model=List[pyd.ComicBase])
-async def filter_comics(
-    genres: List[int] = Query(default=[]),  
-    min_rating: Optional[float] = Query(default=None, ge=0.0, le=10.0),
-    db: AsyncSession = Depends(get_db)
-):
-    stmt = select(
-        m.Comic,
-        func.avg(m.Rating.value).label("avg_rating")
-    ).outerjoin(m.Rating).group_by(m.Comic.id)
-    if genres:
-        stmt = stmt.join(m.Comic.genres).where(m.Genre.id.in_(genres))
-
-    if min_rating is not None:
-        stmt = stmt.having(func.avg(m.Rating.value) >= min_rating)
-
-    stmt = stmt.options(selectinload(m.Comic.genres)).distinct()
-    stmt = stmt.order_by(desc("avg_rating"))  
-
-    result = await db.execute(stmt)
-    rows = result.all()
-
-    return [
-        {
-            **pyd.ComicBase.from_orm(row[0]).dict(),
-            "average_rating": round(row[1], 2) if row[1] is not None else None
-        }
-        for row in rows
-    ]
 
 
 @router.get("/favorites/{nick}", response_model=List[pyd.ComicBase])
