@@ -43,6 +43,12 @@ const router = createRouter({
       // which is lazy-loaded when the route is visited.
       component: () => import('../views/FavView.vue'),
     },
+    {
+  path: '/comic/:comic_id/chapter/:chapter_id/page/:page_number',
+  name: 'reader',
+  component: () => import('@/views/ReadView.vue'),
+  props: true
+}
   ],
 })
 
