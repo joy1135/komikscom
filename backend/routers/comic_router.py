@@ -2,12 +2,14 @@ from fastapi import FastAPI, HTTPException, Depends, APIRouter, UploadFile, Quer
 from fastapi.middleware.cors import CORSMiddleware
 from database import get_db
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import label, select, desc, func, asc, nullslast
-from sqlalchemy.orm import selectinload, joinedload
+from sqlalchemy import label, select, desc, func, asc, nullslast, delete
+from sqlalchemy.orm import selectinload, noload
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 import models as m
 from typing import List, Optional
 import pyd
 from sqlalchemy.sql.functions import coalesce
+from auth import get_current_user
 
 router = APIRouter(
     prefix="/comic",
@@ -110,25 +112,83 @@ async def get_comic_by_id(
     db: AsyncSession = Depends(get_db),
 ):
     stmt = (
-        select(m.Comic)
-        .where(m.Comic.id == comic_id)
-        .options(
-            selectinload(m.Comic.user),
-            selectinload(m.Comic.genres),
-            selectinload(m.Comic.volumes),
-        )
+    select(m.Comic)
+    .where(m.Comic.id == comic_id)
+    .options(
+        selectinload(m.Comic.user),
+        selectinload(m.Comic.genres),
+        selectinload(m.Comic.volumes)
+        .selectinload(m.Volume.chapters)
+        .options(noload(m.Chapter.pages)),
+    )
     )
     result = await db.execute(stmt)
     comic = result.scalars().first()
 
     if not comic:
-        raise HTTPException(status_code=404, detail="Comic not found")
+        raise HTTPException(status_code=404, detail="Комикс не найден")
 
-    # Получение среднего рейтинга
     rating_stmt = select(func.avg(m.Rating.value)).where(m.Rating.comic_id == comic_id)
     rating_result = await db.execute(rating_stmt)
     average_rating = rating_result.scalar()
 
-    comic.average_rating = average_rating  # динамически присваиваем
+    comic.average_rating = average_rating
 
     return comic
+
+@router.get("/chapters/{chapter_id}", response_model=list[pyd.PageResponse])
+async def get_pages_by_chapter_id(
+    chapter_id: int,
+    db: AsyncSession = Depends(get_db),
+):
+    stmt = (
+        select(m.Page)
+        .where(m.Page.chapter_id == chapter_id)
+        .order_by(m.Page.number)
+    )
+    result = await db.execute(stmt)
+    pages = result.scalars().all()
+
+    if not pages:
+        raise HTTPException(status_code=404, detail="Страница не найдена")
+
+    return pages
+
+@router.post("/{comic_id}/favorite")
+async def add_comic_to_favorites(
+    comic_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: m.User = Depends(get_current_user),
+):
+    stmt = pg_insert(m.user_favorite_comics).values(user_id=current_user.id, comic_id=comic_id)
+    stmt = stmt.on_conflict_do_nothing(index_elements=["user_id", "comic_id"])
+    await db.execute(stmt)
+    await db.commit()
+    return {"message": "Комикс добавлен в любимое"}
+
+@router.delete("/{comic_id}/del_favorite")
+async def remove_comic_from_favorites(
+    comic_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: m.User = Depends(get_current_user),
+):
+    stmt = delete(m.user_favorite_comics).where(
+        m.user_favorite_comics.c.user_id == current_user.id,
+        m.user_favorite_comics.c.comic_id == comic_id
+    )
+    await db.execute(stmt)
+    await db.commit()
+    return {"message": "Комикс удален из любимого"}
+
+@router.get("/{comic_id}/is_favorite", response_model=bool)
+async def is_comic_favorite(
+    comic_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: m.User = Depends(get_current_user),
+):
+    stmt = select(m.user_favorite_comics).where(
+        m.user_favorite_comics.c.user_id == current_user.id,
+        m.user_favorite_comics.c.comic_id == comic_id
+    )
+    result = await db.execute(stmt)
+    return result.first() is not None
