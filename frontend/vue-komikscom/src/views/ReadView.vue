@@ -28,7 +28,7 @@
           <button
             class="nav-button"
             @click="goToPreviousPage"
-            :disabled="isFirstPage"
+            :disabled="isFirstPage && !prevChapter"
             title="Предыдущая страница"
           >
             &lt;
@@ -48,7 +48,7 @@
           <button
             class="nav-button"
             @click="goToNextPage"
-            :disabled="isLastPage"
+            :disabled="isLastPage && !nextChapter"
             title="Следующая страница"
           >
             &gt;
@@ -116,6 +116,27 @@ const currentChapterInfo = computed(() => {
 const currentChapterNumber = computed(() => currentChapterInfo.value.number || '')
 const currentVolumeNumber = computed(() => currentChapterInfo.value.volume_number || '')
 
+// Находим индекс текущей главы
+const currentChapterIndex = computed(() => {
+  return allChapters.value.findIndex(ch => ch.id === chapterId.value)
+})
+
+// Находим следующую главу
+const nextChapter = computed(() => {
+  if (currentChapterIndex.value >= 0 && currentChapterIndex.value < allChapters.value.length - 1) {
+    return allChapters.value[currentChapterIndex.value + 1]
+  }
+  return null
+})
+
+// Находим предыдущую главу
+const prevChapter = computed(() => {
+  if (currentChapterIndex.value > 0) {
+    return allChapters.value[currentChapterIndex.value - 1]
+  }
+  return null
+})
+
 const isFirstPage = computed(() => {
   if (!sortedPages.value.length) return true
   const sorted = sortedPages.value
@@ -170,27 +191,39 @@ function updateRoute() {
 
 // Навигация на следующую страницу
 function goToNextPage() {
-  if (isLastPage.value) return
-  
-  const sorted = sortedPages.value
-  const currentIndex = sorted.findIndex(p => p.number === currentPageNumber.value)
-  
-  if (currentIndex >= 0 && currentIndex < sorted.length - 1) {
-    currentPageNumber.value = sorted[currentIndex + 1].number
-    updateRoute()
+  if (!isLastPage.value) {
+    // Переход на следующую страницу в текущей главе
+    const sorted = sortedPages.value
+    const currentIndex = sorted.findIndex(p => p.number === currentPageNumber.value)
+    
+    if (currentIndex >= 0 && currentIndex < sorted.length - 1) {
+      currentPageNumber.value = sorted[currentIndex + 1].number
+      updateRoute()
+    }
+  } else if (nextChapter.value) {
+    // Переход на первую страницу следующей главы
+    chapterId.value = nextChapter.value.id
+    currentPageNumber.value = 1
+    fetchChapterData(chapterId.value)
   }
 }
 
 // Навигация на предыдущую страницу
 function goToPreviousPage() {
-  if (isFirstPage.value) return
-  
-  const sorted = sortedPages.value
-  const currentIndex = sorted.findIndex(p => p.number === currentPageNumber.value)
-  
-  if (currentIndex > 0) {
-    currentPageNumber.value = sorted[currentIndex - 1].number
-    updateRoute()
+  if (!isFirstPage.value) {
+    // Переход на предыдущую страницу в текущей главе
+    const sorted = sortedPages.value
+    const currentIndex = sorted.findIndex(p => p.number === currentPageNumber.value)
+    
+    if (currentIndex > 0) {
+      currentPageNumber.value = sorted[currentIndex - 1].number
+      updateRoute()
+    }
+  } else if (prevChapter.value) {
+    // Переход на последнюю страницу предыдущей главы
+    chapterId.value = prevChapter.value.id
+    currentPageNumber.value = 1
+    fetchChapterData(chapterId.value, true)
   }
 }
 
@@ -203,7 +236,6 @@ function onChapterChange() {
   currentPageNumber.value = 1
   chapterId.value = selectedChapterId.value
   fetchChapterData(chapterId.value)
-  updateRoute()
 }
 
 const selectedChapterId = ref(chapterId.value)
@@ -251,8 +283,8 @@ async function fetchComicData() {
   }
 }
 
-// Запрос страниц главы по новому эндпоинту
-async function fetchChapterData(chId) {
+// Запрос страниц главы
+async function fetchChapterData(chId, setToLastPage = false) {
   try {
     loadingPages.value = true
     imageError.value = false
@@ -265,13 +297,21 @@ async function fetchChapterData(chId) {
     
     // Если текущая страница не валидна, переходим на первую
     if (pages.value.length > 0) {
-      const pageNumbers = pages.value.map(p => p.number)
-      if (!pageNumbers.includes(currentPageNumber.value)) {
-        currentPageNumber.value = Math.min(...pageNumbers)
+      if (setToLastPage) {
+        // Установка на последнюю страницу
+        currentPageNumber.value = Math.max(...pages.value.map(p => p.number))
+      } else {
+        const pageNumbers = pages.value.map(p => p.number)
+        if (!pageNumbers.includes(currentPageNumber.value)) {
+          currentPageNumber.value = Math.min(...pageNumbers)
+        }
       }
     } else {
       currentPageNumber.value = 1
     }
+    
+    // Обновляем маршрут
+    updateRoute()
   } catch (e) {
     console.error('Ошибка загрузки главы:', e)
     pages.value = []
@@ -281,9 +321,6 @@ async function fetchChapterData(chId) {
 }
 
 onMounted(async () => {
-  console.log('API URL:', API_URL)
-  console.log('API BASE URL:', API_BASE_URL)
-  console.log('Route params:', route.params)
   if (!allChapters.value.length) {
     await fetchComicData()
   }
@@ -313,6 +350,7 @@ select {
   border: 1px solid #555;
   padding: 5px 10px;
   border-radius: 4px;
+  min-width: 60px;
 }
 
 .nav-button {
@@ -334,11 +372,6 @@ select {
 }
 
 .nav-button:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-button:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }
