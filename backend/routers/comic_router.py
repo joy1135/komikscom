@@ -101,3 +101,34 @@ async def get_favorite_comics_by_nick(nick: str, db: AsyncSession = Depends(get_
     sorted_comics = sorted(user.favorite_comics, key=lambda c: c.title.lower())
 
     return sorted_comics
+
+from sqlalchemy import func
+
+@router.get("/comics/{comic_id}", response_model=pyd.ComicResponse)
+async def get_comic_by_id(
+    comic_id: int,
+    db: AsyncSession = Depends(get_db),
+):
+    stmt = (
+        select(m.Comic)
+        .where(m.Comic.id == comic_id)
+        .options(
+            selectinload(m.Comic.user),
+            selectinload(m.Comic.genres),
+            selectinload(m.Comic.volumes),
+        )
+    )
+    result = await db.execute(stmt)
+    comic = result.scalars().first()
+
+    if not comic:
+        raise HTTPException(status_code=404, detail="Comic not found")
+
+    # Получение среднего рейтинга
+    rating_stmt = select(func.avg(m.Rating.value)).where(m.Rating.comic_id == comic_id)
+    rating_result = await db.execute(rating_stmt)
+    average_rating = rating_result.scalar()
+
+    comic.average_rating = average_rating  # динамически присваиваем
+
+    return comic
