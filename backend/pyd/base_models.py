@@ -2,8 +2,6 @@ from datetime import date, datetime
 from typing import List, Optional
 from pydantic import BaseModel, Field
 
-# === Базовые модели ===
-
 class GenreBase(BaseModel):
     name: str = Field(..., example="Fantasy", max_length=255)
 
@@ -15,6 +13,7 @@ class UserBase(BaseModel):
     nick: str = Field(..., example="cool_user", max_length=255)
 
 class ComicBase(BaseModel):
+    id: int
     title: str = Field(..., example="Awesome Comic", max_length=255)
     date_of_out: date = Field(..., example="2023-01-15")
     website_recommendation: bool = Field(..., example=True)
@@ -54,8 +53,6 @@ class VolumeResponse(BaseModel):
 
     class Config:
         from_attributes = True
-
-# === Ответные модели ===
 
 class GenreResponse(GenreBase):
     id: int = Field(..., example=1)
