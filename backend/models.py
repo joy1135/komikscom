@@ -18,6 +18,7 @@ class Comic(Base):
     __tablename__ = "comics"
     id = Column(Integer, primary_key=True)
     title = Column(String(255), unique=True, nullable=False)
+    desc = Column(String(255), nullable=True)
     date_of_out = Column(Date, nullable=False)
     userID = Column(Integer, ForeignKey("users.id", ondelete='CASCADE'), nullable=False)
     website_recommendation = Column(Boolean, nullable=False)

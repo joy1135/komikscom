@@ -23,14 +23,12 @@ async def seed():
     async_session = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
     async with async_session() as session:
-        # Roles
         admin_role = m.Role(name="Admin")
         user_role = m.Role(name="User")
         aftor_role = m.Role(name="Aftor")
         session.add_all([admin_role, user_role, aftor_role])
         await session.flush()
 
-        # Users
         admin_user = m.User(
             email="admin@example.com",
             nick="admin",
@@ -52,23 +50,23 @@ async def seed():
         session.add_all([admin_user, regular_user, aftor_user])
         await session.flush()
 
-        # Genres
         fantasy = m.Genre(name="Fantasy")
         adventure = m.Genre(name="Adventure")
         scifi = m.Genre(name="Sci-Fi")
         session.add_all([fantasy, adventure, scifi])
         await session.flush()
 
-        # Comics
         comic1 = m.Comic(
-            title="Комикс 1",
+            title="Комикс1",
+            desc="Классный комикс про шрека",
             date_of_out=date(2023, 1, 15),
             userID=admin_user.id,
             website_recommendation=True,
             img=""
         )
         comic2 = m.Comic(
-            title="Комикс 2",
+            title="Комикс2",
+            desc="Шок комикс про зеленого смурфика",
             date_of_out=date(2023, 2, 20),
             userID=aftor_user.id,
             website_recommendation=False,
@@ -77,7 +75,6 @@ async def seed():
         session.add_all([comic1, comic2])
         await session.flush()
 
-        # Add genres to comics
         session.add_all([
             m.ComicGenre(comic_id=comic1.id, genre_id=fantasy.id),
             m.ComicGenre(comic_id=comic1.id, genre_id=adventure.id),
@@ -85,7 +82,6 @@ async def seed():
         ])
         await session.flush()
 
-        # Add posters
         for comic in [comic1, comic2]:
             poster_folder = os.path.join(COMICS_ROOT, comic.title, "poster")
             os.makedirs(poster_folder, exist_ok=True)
@@ -100,7 +96,6 @@ async def seed():
             else:
                 comic.img = ""
 
-        # Add volumes, chapters, pages
         for comic in [comic1, comic2]:
             volume = m.Volume(number=1, comic_id=comic.id)
             session.add(volume)
@@ -133,7 +128,6 @@ async def seed():
                 )
                 session.add(page)
 
-        # Ratings
         ratings = [
             m.Rating(user_id=admin_user.id, comic_id=comic1.id, value=9),
             m.Rating(user_id=regular_user.id, comic_id=comic1.id, value=8),
@@ -141,14 +135,12 @@ async def seed():
         ]
         session.add_all(ratings)
 
-        # Comments
         comments = [
             m.Comment(userID=admin_user.id, comicID=comic1.id, comment="Отличный комикс! Рекомендую!"),
             m.Comment(userID=regular_user.id, comicID=comic2.id, comment="Интересный сюжет, но концовка слабовата")
         ]
         session.add_all(comments)
 
-        # Favorites
         await session.execute(m.user_favorite_comics.insert().values(user_id=aftor_user.id, comic_id=comic1.id))
 
         await session.commit()
