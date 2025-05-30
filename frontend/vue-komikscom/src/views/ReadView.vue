@@ -2,7 +2,7 @@
   <div class="reader-container p-4 max-w-4xl mx-auto">
     <header class="flex flex-col md:flex-row justify-between items-center mb-4 gap-4">
       <div class="text-lg font-bold">
-        Том {{ currentVolumeNumber }}, Глава {{ currentChapterNumber }}
+        Том {{ store.currentVolumeNumber }}, Глава {{ store.currentChapterNumber }}
       </div>
 
       <div class="flex flex-wrap gap-2 items-center">
@@ -15,7 +15,7 @@
             class="p-1 border rounded bg-gray-800 text-white"
           >
             <option
-              v-for="chap in allChapters"
+              v-for="chap in store.allChapters"
               :key="chap.id"
               :value="chap.id"
             >
@@ -24,31 +24,64 @@
           </select>
         </div>
 
-        <div class="flex gap-2 items-center" v-if="sortedPages.length">
+        <div class="flex gap-2 items-center" v-if="store.sortedPages.length">
+          <!-- Предыдущая страница/глава -->
+          <router-link 
+            v-if="previousPageLink"
+            :to="previousPageLink"
+            custom
+            v-slot="{ navigate, isExactActive }"
+          >
+            <button
+              class="nav-button"
+              @click="navigate"
+              :disabled="isExactActive"
+              title="Предыдущая страница"
+            >
+              &lt;
+            </button>
+          </router-link>
           <button
+            v-else
             class="nav-button"
-            @click="goToPreviousPage"
-            :disabled="isFirstPage && !prevChapter"
+            disabled
             title="Предыдущая страница"
           >
             &lt;
           </button>
           
+          <!-- Селектор страницы -->
           <select 
             id="pageSelect" 
-            v-model.number="currentPageNumber" 
+            v-model.number="store.pageNumber" 
             @change="onPageChange" 
             class="p-1 border rounded bg-gray-800 text-white"
           >
-            <option v-for="page in sortedPages" :key="page.id" :value="page.number">
+            <option v-for="page in store.sortedPages" :key="page.id" :value="page.number">
               {{ page.number }}
             </option>
           </select>
           
+          <!-- Следующая страница/глава -->
+          <router-link 
+            v-if="nextPageLink"
+            :to="nextPageLink"
+            custom
+            v-slot="{ navigate, isExactActive }"
+          >
+            <button
+              class="nav-button"
+              @click="navigate"
+              :disabled="isExactActive"
+              title="Следующая страница"
+            >
+              &gt;
+            </button>
+          </router-link>
           <button
+            v-else
             class="nav-button"
-            @click="goToNextPage"
-            :disabled="isLastPage && !nextChapter"
+            disabled
             title="Следующая страница"
           >
             &gt;
@@ -59,15 +92,15 @@
 
     <main class="page-image-wrapper border rounded overflow-hidden">
       <img
-        v-if="currentPage && currentPage.image_url"
-        :src="getImageUrl(currentPage.image_url)"
-        :alt="'Страница ' + currentPage.number"
+        v-if="store.currentPage && store.currentPage.image_url"
+        :src="getImageUrl(store.currentPage.image_url)"
+        :alt="'Страница ' + store.currentPage.number"
         class="mx-auto max-w-full max-h-[80vh]"
         @error="handleImageError"
       />
       <div v-else class="text-center p-10 text-gray-500">
-        <div v-if="loadingPages">Загрузка страницы...</div>
-        <div v-else-if="imageError">Ошибка загрузки изображения</div>
+        <div v-if="store.loading">Загрузка страницы...</div>
+        <div v-else-if="store.imageError">Ошибка загрузки изображения</div>
         <div v-else>Страница не найдена</div>
       </div>
     </main>
@@ -75,257 +108,247 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, onMounted } from 'vue'
+import { ref, watch, onMounted, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { useReaderStore } from '@/stores/store'
 
 const API_URL = import.meta.env.VITE_API_URL 
 const API_BASE_URL = import.meta.env.VITE_API_URL1 
 
 const route = useRoute()
 const router = useRouter()
+const store = useReaderStore()
 
-const comicId = route.params.comic_id
-const chapterId = ref(Number(route.params.chapter_id))
-const currentPageNumber = ref(Number(route.params.page_number) || 1)
+// Инициализация из параметров маршрута
+store.comicId = route.params.comic_id
+store.chapterId = Number(route.params.chapter_id)
+store.pageNumber = Number(route.params.page_number) || 1
 
-const allChapters = ref([])
-const pages = ref([])
-const loadingPages = ref(true)
-const imageError = ref(false)
-
-// Получаем данные из history.state, если есть
-const state = window.history.state || {}
-
-if (state.allChapters) {
-  allChapters.value = state.allChapters
-}
-
-// Сортируем страницы по номеру
-const sortedPages = computed(() => {
-  return [...pages.value].sort((a, b) => a.number - b.number)
-})
-
-const currentPage = computed(() => {
-  return sortedPages.value.find(p => p.number === currentPageNumber.value) || null
-})
-
-const currentChapterInfo = computed(() => {
-  return allChapters.value.find(ch => ch.id === chapterId.value) || {}
-})
-
-const currentChapterNumber = computed(() => currentChapterInfo.value.number || '')
-const currentVolumeNumber = computed(() => currentChapterInfo.value.volume_number || '')
-
-// Находим индекс текущей главы
-const currentChapterIndex = computed(() => {
-  return allChapters.value.findIndex(ch => ch.id === chapterId.value)
-})
-
-// Находим следующую главу
-const nextChapter = computed(() => {
-  if (currentChapterIndex.value >= 0 && currentChapterIndex.value < allChapters.value.length - 1) {
-    return allChapters.value[currentChapterIndex.value + 1]
-  }
-  return null
-})
-
-// Находим предыдущую главу
-const prevChapter = computed(() => {
-  if (currentChapterIndex.value > 0) {
-    return allChapters.value[currentChapterIndex.value - 1]
-  }
-  return null
-})
-
-const isFirstPage = computed(() => {
-  if (!sortedPages.value.length) return true
-  const sorted = sortedPages.value
-  const currentIndex = sorted.findIndex(p => p.number === currentPageNumber.value)
-  return currentIndex <= 0
-})
-
-const isLastPage = computed(() => {
-  if (!sortedPages.value.length) return true
-  const sorted = sortedPages.value
-  const currentIndex = sorted.findIndex(p => p.number === currentPageNumber.value)
-  return currentIndex >= sorted.length - 1
-})
+const selectedChapterId = ref(store.chapterId)
 
 // Формируем полный URL изображения
 const getImageUrl = (imgPath) => {
   if (!imgPath) return '';
-  
-  // Если путь уже абсолютный
-  if (imgPath.startsWith('http://') || imgPath.startsWith('https://')) {
-    return imgPath;
-  }
-  
-  // Если путь начинается с //
-  if (imgPath.startsWith('//')) {
-    return window.location.protocol + imgPath;
-  }
-  
-  // Относительный путь
+  if (imgPath.startsWith('http://') || imgPath.startsWith('https://')) return imgPath;
+  if (imgPath.startsWith('//')) return window.location.protocol + imgPath;
   return `${API_BASE_URL}/${imgPath}`;
 };
 
-// Обработка ошибок загрузки изображения
 const handleImageError = (e) => {
   console.error('Ошибка загрузки изображения:', e);
-  imageError.value = true;
+  store.imageError = true;
 };
 
-function updateRoute() {
+// Вычисляемые свойства для навигационных ссылок
+const previousPageLink = computed(() => {
+  if (!store.isFirstPage) {
+    const sorted = store.sortedPages
+    const idx = sorted.findIndex(p => p.number === store.pageNumber)
+    if (idx > 0) {
+      return {
+        name: 'reader',
+        params: { 
+          comic_id: store.comicId, 
+          chapter_id: store.chapterId, 
+          page_number: sorted[idx - 1].number 
+        }
+      }
+    }
+  } else if (store.prevChapter) {
+    return {
+      name: 'reader',
+      params: { 
+        comic_id: store.comicId, 
+        chapter_id: store.prevChapter.id, 
+        page_number: 'last' // Специальный маркер для последней страницы
+      }
+    }
+  }
+  return null
+})
+
+const nextPageLink = computed(() => {
+  if (!store.isLastPage) {
+    const sorted = store.sortedPages
+    const idx = sorted.findIndex(p => p.number === store.pageNumber)
+    if (idx < sorted.length - 1) {
+      return {
+        name: 'reader',
+        params: { 
+          comic_id: store.comicId, 
+          chapter_id: store.chapterId, 
+          page_number: sorted[idx + 1].number 
+        }
+      }
+    }
+  } else if (store.nextChapter) {
+    return {
+      name: 'reader',
+      params: { 
+        comic_id: store.comicId, 
+        chapter_id: store.nextChapter.id, 
+        page_number: 1 
+      }
+    }
+  }
+  return null
+})
+
+// Обработчики UI
+function onPageChange() {
   router.push({
     name: 'reader',
     params: { 
-      comic_id: comicId, 
-      chapter_id: chapterId.value, 
-      page_number: currentPageNumber.value 
-    },
-    state: {
-      allChapters: allChapters.value,
+      comic_id: store.comicId, 
+      chapter_id: store.chapterId, 
+      page_number: store.pageNumber 
     }
   })
 }
 
-// Навигация на следующую страницу
-function goToNextPage() {
-  if (!isLastPage.value) {
-    // Переход на следующую страницу в текущей главе
-    const sorted = sortedPages.value
-    const currentIndex = sorted.findIndex(p => p.number === currentPageNumber.value)
-    
-    if (currentIndex >= 0 && currentIndex < sorted.length - 1) {
-      currentPageNumber.value = sorted[currentIndex + 1].number
-      updateRoute()
-    }
-  } else if (nextChapter.value) {
-    // Переход на первую страницу следующей главы
-    chapterId.value = nextChapter.value.id
-    currentPageNumber.value = 1
-    fetchChapterData(chapterId.value)
-  }
-}
-
-// Навигация на предыдущую страницу
-function goToPreviousPage() {
-  if (!isFirstPage.value) {
-    // Переход на предыдущую страницу в текущей главе
-    const sorted = sortedPages.value
-    const currentIndex = sorted.findIndex(p => p.number === currentPageNumber.value)
-    
-    if (currentIndex > 0) {
-      currentPageNumber.value = sorted[currentIndex - 1].number
-      updateRoute()
-    }
-  } else if (prevChapter.value) {
-    // Переход на последнюю страницу предыдущей главы
-    chapterId.value = prevChapter.value.id
-    currentPageNumber.value = 1
-    fetchChapterData(chapterId.value, true)
-  }
-}
-
-// Обработчики выбора страницы и главы
-function onPageChange() {
-  updateRoute()
-}
-
 function onChapterChange() {
-  currentPageNumber.value = 1
-  chapterId.value = selectedChapterId.value
-  fetchChapterData(chapterId.value)
+  store.chapterId = selectedChapterId.value
+  router.push({
+    name: 'reader',
+    params: { 
+      comic_id: store.comicId, 
+      chapter_id: store.chapterId, 
+      page_number: 1 
+    }
+  })
+  fetchChapterData(store.chapterId)
 }
 
-const selectedChapterId = ref(chapterId.value)
-
-watch(chapterId, (val) => {
+// Синхронизация селектора главы
+watch(() => store.chapterId, (val) => {
   selectedChapterId.value = val
 })
 
-// Реакция на изменение параметров роута
-watch(() => route.params, (newParams) => {
-  if (newParams.chapter_id && newParams.chapter_id !== chapterId.value.toString()) {
-    chapterId.value = Number(newParams.chapter_id)
-    fetchChapterData(chapterId.value)
+// Обработка навигации с маркером 'last'
+async function processPageNavigation(to) {
+  // Если запрошена последняя страница
+  if (to.params.page_number === 'last') {
+    const chapterId = Number(to.params.chapter_id)
+    
+    // Проверяем, известно ли количество страниц
+    const chapter = store.allChapters.find(ch => ch.id === chapterId)
+    
+    if (chapter?.page_count) {
+      // Если известно - используем сохраненное значение
+      to.params.page_number = chapter.page_count
+    } else {
+      // Если неизвестно - загружаем данные главы
+      const pageCount = await store.fetchChapterPageCount(chapterId)
+      to.params.page_number = pageCount > 0 ? pageCount : 1
+    }
   }
   
-  if (newParams.page_number) {
-    currentPageNumber.value = Number(newParams.page_number)
-  }
-})
+  return to
+}
 
-// Запрос данных комикса и глав
+// Реакция на изменения URL
+watch(() => route.params, async (newParams) => {
+  const newChapterId = Number(newParams.chapter_id)
+  const newPageNumber = newParams.page_number // Может быть числом или 'last'
+  
+  // Обрабатываем навигацию
+  const processedParams = await processPageNavigation({
+    params: {
+      comic_id: store.comicId,
+      chapter_id: newChapterId,
+      page_number: newPageNumber
+    }
+  })
+  
+  // Обновляем URL если параметры изменились
+  if (processedParams.params.page_number !== newPageNumber) {
+    router.replace({
+      name: 'reader',
+      params: {
+        comic_id: store.comicId,
+        chapter_id: newChapterId,
+        page_number: processedParams.params.page_number
+      }
+    })
+    return
+  }
+  
+  // Обновляем состояние хранилища
+  if (newChapterId !== store.chapterId) {
+    store.chapterId = newChapterId
+    await fetchChapterData(store.chapterId)
+  }
+  
+  if (Number(processedParams.params.page_number) )
+  {
+    store.pageNumber = Number(processedParams.params.page_number)
+  }
+}, { immediate: true, deep: true })
+
+// Загрузка данных
 async function fetchComicData() {
   try {
-    const res = await fetch(`${API_URL}/comic/comics/${comicId}`)
+    const res = await fetch(`${API_URL}/comic/comics/${store.comicId}`)
     if (!res.ok) throw new Error(`Ошибка загрузки комикса: ${res.status}`)
     const data = await res.json()
-    allChapters.value = []
     
-    if (data.volumes) {
-      data.volumes.forEach(volume => {
-        if (volume.chapters && volume.chapters.length) {
-          volume.chapters.forEach(ch => {
-            allChapters.value.push({
-              id: ch.id,
-              number: ch.number,
-              title: ch.title,
-              volume_number: volume.number,
-            })
-          })
-        }
+    store.allChapters = []
+    data.volumes?.forEach(volume => {
+      volume.chapters?.forEach(ch => {
+        store.allChapters.push({
+          id: ch.id,
+          number: ch.number,
+          title: ch.title,
+          volume_number: volume.number,
+          page_count: null // Инициализируем null
+        })
       })
-    }
+    })
   } catch (e) {
     console.error('Ошибка загрузки комикса:', e)
   }
 }
 
-// Запрос страниц главы
-async function fetchChapterData(chId, setToLastPage = false) {
+async function fetchChapterData(chId) {
   try {
-    loadingPages.value = true
-    imageError.value = false
+    store.loading = true
+    store.imageError = false
     
     const chRes = await fetch(`${API_URL}/comic/chapters/${chId}`)
     if (!chRes.ok) throw new Error(`Ошибка загрузки главы: ${chRes.status}`)
     
     const data = await chRes.json()
-    pages.value = data || []
+    store.pages = data || []
     
-    // Если текущая страница не валидна, переходим на первую
-    if (pages.value.length > 0) {
-      if (setToLastPage) {
-        // Установка на последнюю страницу
-        currentPageNumber.value = Math.max(...pages.value.map(p => p.number))
-      } else {
-        const pageNumbers = pages.value.map(p => p.number)
-        if (!pageNumbers.includes(currentPageNumber.value)) {
-          currentPageNumber.value = Math.min(...pageNumbers)
-        }
-      }
-    } else {
-      currentPageNumber.value = 1
+    // Обновляем количество страниц для главы
+    const chapter = store.allChapters.find(ch => ch.id === chId)
+    if (chapter) {
+      chapter.page_count = store.pages.length
     }
     
-    // Обновляем маршрут
-    updateRoute()
+    // Установка корректной страницы
+    if (store.pages.length > 0) {
+      if (!store.pages.some(p => p.number === store.pageNumber)) {
+        store.pageNumber = Math.min(...store.pages.map(p => p.number))
+      }
+    } else {
+      store.pageNumber = 1
+    }
   } catch (e) {
     console.error('Ошибка загрузки главы:', e)
-    pages.value = []
+    store.pages = []
   } finally {
-    loadingPages.value = false
+    store.loading = false
   }
 }
 
+// Инициализация компонента
 onMounted(async () => {
-  if (!allChapters.value.length) {
+  if (!store.allChapters.length) {
     await fetchComicData()
   }
   
-  await fetchChapterData(chapterId.value)
+  await fetchChapterData(store.chapterId)
 })
 </script>
 
