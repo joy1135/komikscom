@@ -95,18 +95,18 @@ async def seed():
                 comic.img = relative_img_path
             else:
                 comic.img = ""
-
+        # 
         for comic in [comic1, comic2]:
             volume = m.Volume(number=1, comic_id=comic.id)
             session.add(volume)
             await session.flush()
 
-            chapter = m.Chapter(number=1, title=None, volume_id=volume.id)
-            session.add(chapter)
+            chapter1 = m.Chapter(number=1, title=None, volume_id=volume.id)
+            session.add(chapter1)
             await session.flush()
 
-            target_chapter_folder = os.path.join(COMICS_ROOT, comic.title, "comic", "vl1", "ch1")
-            os.makedirs(target_chapter_folder, exist_ok=True)
+            target_chapter_folder_1 = os.path.join(COMICS_ROOT, comic.title, "comic", "vl1", "ch1")
+            os.makedirs(target_chapter_folder_1, exist_ok=True)
 
             for file_name in sorted(os.listdir(SEED_PAGES_FOLDER)):
                 if not any(file_name.lower().endswith(ext) for ext in VALID_IMAGE_EXTENSIONS):
@@ -117,16 +117,45 @@ async def seed():
                     continue
 
                 source_path = os.path.join(SEED_PAGES_FOLDER, file_name)
-                dest_path = os.path.join(target_chapter_folder, file_name)
+                dest_path = os.path.join(target_chapter_folder_1, file_name)
                 shutil.copyfile(source_path, dest_path)
 
                 relative_path = os.path.relpath(dest_path, FILES_ROOT).replace("\\", "/")
                 page = m.Page(
                     number=page_number,
                     image_url=relative_path,
-                    chapter_id=chapter.id
+                    chapter_id=chapter1.id
                 )
                 session.add(page)
+            
+            if comic == comic1:
+                chapter2 = m.Chapter(number=2, title=None, volume_id=volume.id)
+                session.add(chapter2)
+                await session.flush()
+
+                target_chapter_folder_2 = os.path.join(COMICS_ROOT, comic.title, "comic", "vl1", "ch2")
+                os.makedirs(target_chapter_folder_2, exist_ok=True)
+
+                for file_name in sorted(os.listdir(SEED_PAGES_FOLDER)):
+                    if not any(file_name.lower().endswith(ext) for ext in VALID_IMAGE_EXTENSIONS):
+                        continue
+                    try:
+                        page_number = int(os.path.splitext(file_name)[0])
+                    except ValueError:
+                        continue
+
+                    source_path = os.path.join(SEED_PAGES_FOLDER, file_name)
+                    dest_path = os.path.join(target_chapter_folder_2, file_name)
+                    shutil.copyfile(source_path, dest_path)
+
+                    relative_path = os.path.relpath(dest_path, FILES_ROOT).replace("\\", "/")
+                    page = m.Page(
+                        number=page_number,
+                        image_url=relative_path,
+                        chapter_id=chapter2.id
+                    )
+                    session.add(page)
+
 
         ratings = [
             m.Rating(user_id=admin_user.id, comic_id=comic1.id, value=9),
