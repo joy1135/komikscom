@@ -5,45 +5,56 @@
         Том {{ currentVolumeNumber }}, Глава {{ currentChapterNumber }}
       </div>
 
-      <div class="flex gap-2 items-center">
-        <label for="chapterSelect" class="font-semibold">Выбор главы:</label>
-        <select 
-          id="chapterSelect" 
-          v-model="selectedChapterId" 
-          @change="onChapterChange" 
-          class="p-1 border rounded bg-gray-800 text-white"
-        >
-          <option
-            v-for="chap in allChapters"
-            :key="chap.id"
-            :value="chap.id"
+      <div class="flex flex-wrap gap-2 items-center">
+        <div class="flex gap-2 items-center">
+          <label for="chapterSelect" class="font-semibold">Глава:</label>
+          <select 
+            id="chapterSelect" 
+            v-model="selectedChapterId" 
+            @change="onChapterChange" 
+            class="p-1 border rounded bg-gray-800 text-white"
           >
-            Том {{ chap.volume_number }} - Глава {{ chap.number }} {{ chap.title || '' }}
-          </option>
-        </select>
-      </div>
+            <option
+              v-for="chap in allChapters"
+              :key="chap.id"
+              :value="chap.id"
+            >
+              Том {{ chap.volume_number }} - Глава {{ chap.number }} {{ chap.title || '' }}
+            </option>
+          </select>
+        </div>
 
-      <div class="flex gap-2 items-center" v-if="sortedPages.length">
-        <label for="pageSelect" class="font-semibold">Выбор страницы:</label>
-        <select 
-          id="pageSelect" 
-          v-model.number="currentPageNumber" 
-          @change="onPageChange" 
-          class="p-1 border rounded bg-gray-800 text-white"
-        >
-          <option v-for="page in sortedPages" :key="page.id" :value="page.number">
-            {{ page.number }}
-          </option>
-        </select>
+        <div class="flex gap-2 items-center" v-if="sortedPages.length">
+          <button
+            class="nav-button"
+            @click="goToPreviousPage"
+            :disabled="isFirstPage"
+            title="Предыдущая страница"
+          >
+            &lt;
+          </button>
+          
+          <select 
+            id="pageSelect" 
+            v-model.number="currentPageNumber" 
+            @change="onPageChange" 
+            class="p-1 border rounded bg-gray-800 text-white"
+          >
+            <option v-for="page in sortedPages" :key="page.id" :value="page.number">
+              {{ page.number }}
+            </option>
+          </select>
+          
+          <button
+            class="nav-button"
+            @click="goToNextPage"
+            :disabled="isLastPage"
+            title="Следующая страница"
+          >
+            &gt;
+          </button>
+        </div>
       </div>
-
-      <button
-        class="bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700"
-        @click="goToNextPage"
-        :disabled="isLastPage"
-      >
-        Следующая страница →
-      </button>
     </header>
 
     <main class="page-image-wrapper border rounded overflow-hidden">
@@ -67,8 +78,8 @@
 import { ref, computed, watch, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
-const API_BASE_URL = import.meta.env.VITE_API_URL1 || 'http://localhost:8000'
+const API_URL = import.meta.env.VITE_API_URL 
+const API_BASE_URL = import.meta.env.VITE_API_URL1 
 
 const route = useRoute()
 const router = useRouter()
@@ -77,7 +88,6 @@ const comicId = route.params.comic_id
 const chapterId = ref(Number(route.params.chapter_id))
 const currentPageNumber = ref(Number(route.params.page_number) || 1)
 
-const chapterData = ref(null)
 const allChapters = ref([])
 const pages = ref([])
 const loadingPages = ref(true)
@@ -86,8 +96,7 @@ const imageError = ref(false)
 // Получаем данные из history.state, если есть
 const state = window.history.state || {}
 
-if (state.chapterData && state.allChapters) {
-  chapterData.value = state.chapterData
+if (state.allChapters) {
   allChapters.value = state.allChapters
 }
 
@@ -107,10 +116,18 @@ const currentChapterInfo = computed(() => {
 const currentChapterNumber = computed(() => currentChapterInfo.value.number || '')
 const currentVolumeNumber = computed(() => currentChapterInfo.value.volume_number || '')
 
+const isFirstPage = computed(() => {
+  if (!sortedPages.value.length) return true
+  const sorted = sortedPages.value
+  const currentIndex = sorted.findIndex(p => p.number === currentPageNumber.value)
+  return currentIndex <= 0
+})
+
 const isLastPage = computed(() => {
   if (!sortedPages.value.length) return true
-  const lastPage = sortedPages.value[sortedPages.value.length - 1]
-  return currentPageNumber.value >= lastPage.number
+  const sorted = sortedPages.value
+  const currentIndex = sorted.findIndex(p => p.number === currentPageNumber.value)
+  return currentIndex >= sorted.length - 1
 })
 
 // Формируем полный URL изображения
@@ -146,7 +163,6 @@ function updateRoute() {
       page_number: currentPageNumber.value 
     },
     state: {
-      chapterData: chapterData.value,
       allChapters: allChapters.value,
     }
   })
@@ -156,11 +172,24 @@ function updateRoute() {
 function goToNextPage() {
   if (isLastPage.value) return
   
-  // Находим индекс текущей страницы
-  const currentIndex = sortedPages.value.findIndex(p => p.number === currentPageNumber.value)
+  const sorted = sortedPages.value
+  const currentIndex = sorted.findIndex(p => p.number === currentPageNumber.value)
   
-  if (currentIndex >= 0 && currentIndex < sortedPages.value.length - 1) {
-    currentPageNumber.value = sortedPages.value[currentIndex + 1].number
+  if (currentIndex >= 0 && currentIndex < sorted.length - 1) {
+    currentPageNumber.value = sorted[currentIndex + 1].number
+    updateRoute()
+  }
+}
+
+// Навигация на предыдущую страницу
+function goToPreviousPage() {
+  if (isFirstPage.value) return
+  
+  const sorted = sortedPages.value
+  const currentIndex = sorted.findIndex(p => p.number === currentPageNumber.value)
+  
+  if (currentIndex > 0) {
+    currentPageNumber.value = sorted[currentIndex - 1].number
     updateRoute()
   }
 }
@@ -222,7 +251,7 @@ async function fetchComicData() {
   }
 }
 
-// Запрос данных конкретной главы
+// Запрос страниц главы по новому эндпоинту
 async function fetchChapterData(chId) {
   try {
     loadingPages.value = true
@@ -232,10 +261,7 @@ async function fetchChapterData(chId) {
     if (!chRes.ok) throw new Error(`Ошибка загрузки главы: ${chRes.status}`)
     
     const data = await chRes.json()
-    chapterData.value = data
-    pages.value = data.pages || []
-    
-    console.log('Данные главы:', data)
+    pages.value = data || []
     
     // Если текущая страница не валидна, переходим на первую
     if (pages.value.length > 0) {
@@ -243,6 +269,8 @@ async function fetchChapterData(chId) {
       if (!pageNumbers.includes(currentPageNumber.value)) {
         currentPageNumber.value = Math.min(...pageNumbers)
       }
+    } else {
+      currentPageNumber.value = 1
     }
   } catch (e) {
     console.error('Ошибка загрузки главы:', e)
@@ -256,14 +284,11 @@ onMounted(async () => {
   console.log('API URL:', API_URL)
   console.log('API BASE URL:', API_BASE_URL)
   console.log('Route params:', route.params)
-  
   if (!allChapters.value.length) {
     await fetchComicData()
   }
   
-  if (!chapterData.value) {
-    await fetchChapterData(chapterId.value)
-  }
+  await fetchChapterData(chapterId.value)
 })
 </script>
 
@@ -290,8 +315,35 @@ select {
   border-radius: 4px;
 }
 
+.nav-button {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #3a3a3a;
+  color: white;
+  border: 1px solid #555;
+  border-radius: 4px;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.nav-button:hover:not(:disabled) {
+  background: #4a4a4a;
+}
+
+.nav-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 button:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+.flex-wrap {
+  flex-wrap: wrap;
 }
 </style>
