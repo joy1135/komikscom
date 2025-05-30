@@ -1,5 +1,7 @@
+import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from routers import *
 from admin import setup_admin
 from database import engine, Base
@@ -24,6 +26,12 @@ app.add_middleware(SessionMiddleware, secret_key=settings.SECRET_KEY)
 async def on_startup():
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+        
+app.mount(
+    "/comics",
+    StaticFiles(directory=os.path.join("files", "comics")),
+    name="comics"
+)
 
 app.include_router(comic_router, prefix="/api", tags=["api"])
 app.include_router(aftor_router, prefix="/api", tags=["api"])
