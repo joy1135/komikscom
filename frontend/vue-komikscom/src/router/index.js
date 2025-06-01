@@ -48,8 +48,15 @@ const router = createRouter({
   name: 'reader',
   component: () => import('@/views/ReadView.vue'),
   props: true
-}
-  ],
+},
+{
+    path: '/your_profile',
+    name: 'profile',
+    component: () => import('@/views/ProfileView.vue'),
+  },
+  
+  ]
+  
 })
 
 export default router

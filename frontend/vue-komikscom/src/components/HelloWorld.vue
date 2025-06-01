@@ -14,16 +14,13 @@ const searchContainerRef = ref(null)
 
 onMounted(() => {
   authStore.initAuthState()
-  // Добавляем обработчик кликов
   document.addEventListener('click', handleClickOutside)
 })
 
 onBeforeUnmount(() => {
-  // Удаляем обработчик при размонтировании
   document.removeEventListener('click', handleClickOutside)
 })
 
-// Функция для обработки кликов вне области поиска
 const handleClickOutside = (event) => {
   if (searchContainerRef.value && 
       !searchContainerRef.value.contains(event.target)) {
@@ -114,7 +111,9 @@ const goToComic = (id) => {
       <nav class="auth-nav">
         <template v-if="authStore.isLoggedIn">
           <div class="user-info">
-            <span>{{ authStore.nickname }}</span>
+            <RouterLink to="/your_profile" class="profile-link">
+              {{ authStore.nickname }}
+            </RouterLink>
             <button @click="logout" class="logout-button">Выйти</button>
           </div>
         </template>
@@ -240,6 +239,20 @@ nav {
   gap: 10px;
 }
 
+.profile-link {
+  color: white;
+  text-decoration: none;
+  transition: all 0.3s ease;
+  padding: 5px 10px;
+  border-radius: 4px;
+  margin-right: 10px;
+}
+
+.profile-link:hover {
+  background-color: #3a3a3a;
+  text-decoration: underline;
+}
+
 .logout-button {
   background: #2a2a2a;
   color: #aaa;
@@ -262,6 +275,12 @@ nav {
     flex-direction: column;
     align-items: flex-start;
     gap: 5px;
+  }
+  
+  .profile-link {
+    padding: 3px 8px;
+    font-size: 0.9rem;
+    margin-right: 5px;
   }
   
   .logout-button {
