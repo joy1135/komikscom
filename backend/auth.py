@@ -32,6 +32,8 @@ async def get_current_user(
         payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
         email: str = payload.get("sub")
         nick: str = payload.get("nick")
+        id: int = payload.get("id")
+        role: int = payload.get("role")
         if not email:
             raise credentials_exception
     except JWTError as e:
