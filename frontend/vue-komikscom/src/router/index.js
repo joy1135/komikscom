@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import HomeView from '../views/HomeView.vue'
+import { useAuthStore } from '@/stores/auth'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -38,9 +39,6 @@ const router = createRouter({
 }    ,{
       path: '/favourite',
       name: 'favourite',
-      // route level code-splitting
-      // this generates a separate chunk (About.[hash].js) for this route
-      // which is lazy-loaded when the route is visited.
       component: () => import('../views/FavView.vue'),
     },
     {
@@ -54,9 +52,27 @@ const router = createRouter({
     name: 'profile',
     component: () => import('@/views/ProfileView.vue'),
   },
+  {
+    path: '/create-comic',
+    name: 'create-comic',
+    component: () => import('@/views/CreaterView.vue'),
+    meta: {requiresCreator: true }
+  }
   
   ]
   
 })
-
+router.beforeEach((to, from, next) => {
+  const authStore = useAuthStore()
+  // Проверка прав на создание комиксов
+  if (to.meta.requiresCreator) {
+    const canCreate = authStore.role === 1 || authStore.role === 3
+    if (!canCreate) {
+      next('/') // Или на страницу с ошибкой доступа
+      return
+    }
+  }
+  
+  next()
+})
 export default router

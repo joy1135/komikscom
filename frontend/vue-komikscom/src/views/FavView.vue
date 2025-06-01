@@ -28,21 +28,26 @@
           <div
             v-for="comic in paginatedComics"
             :key="comic.id"
-            class="bg-black p-2 rounded shadow-md flex flex-col items-center"
+            class="bg-black p-2 rounded shadow-md flex flex-col items-center hover:scale-105 transition-transform"
           >
-            <img
-              :src="getFullImageUrl(comic.img)" 
-              @error="handleImageError"
-              alt="Cover" 
-              class="w-full h-48 object-cover"
-            />
-            <div class="mt-2 text-center">
-              <div class="font-bold text-sm">{{ comic.title }}</div>
-              <div class="text-xs text-gray-400">{{ comic.author }}</div>
-              <div class="text-xs text-yellow-400 mt-1">
-                ★ {{ comic.average_rating ?? "—" }}
+            <RouterLink
+              :to="`/comics/${comic.id}`"
+              class="w-full flex flex-col items-center"
+            >
+              <img
+                :src="getFullImageUrl(comic.img)" 
+                @error="handleImageError"
+                alt="Cover" 
+                class="w-full h-48 object-cover rounded"
+              />
+              <div class="mt-2 text-center">
+                <div class="font-bold text-sm">{{ comic.title }}</div>
+                <div class="text-xs text-gray-400">{{ comic.author }}</div>
+                <div class="text-xs text-yellow-400 mt-1">
+                  ★ {{ comic.average_rating ?? "—" }}
+                </div>
               </div>
-            </div>
+            </RouterLink>
           </div>
         </div>
 
@@ -93,9 +98,11 @@
   </div>
 </template>
 
+
 <script setup>
 import { ref, onMounted, computed } from 'vue';
 import { useAuthStore } from '@/stores/auth'
+import { RouterLink } from 'vue-router';
 
 const apiUrl = import.meta.env.VITE_API_URL;
 const API_BASE_URL = import.meta.env.VITE_API_URL1;
@@ -173,5 +180,10 @@ img {
   width: 100px;
   height: 150px;
   object-fit: cover;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
 }
 </style>

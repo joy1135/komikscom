@@ -25,13 +25,14 @@
       />
 
       <div class="grid grid-cols-5 gap-4 mt-4">
-        <div
+        <router-link
           v-for="comic in comics"
           :key="comic.id"
-          class="bg-black p-2 rounded shadow-md flex flex-col items-center"
+          :to="`/comics/${comic.id}`"
+          class="bg-black p-2 rounded shadow-md flex flex-col items-center hover:scale-105 transition-transform"
         >
           <img
-            :src="getFullImageUrl(comic.img)" 
+            :src="getFullImageUrl(comic.img)"
             @error="handleImageError"
             alt="Cover"
             class="w-full h-48 object-cover"
@@ -43,7 +44,7 @@
               ★ {{ comic.average_rating ?? "—" }}
             </div>
           </div>
-        </div>
+        </router-link>
       </div>
 
       <!-- Пагинация -->

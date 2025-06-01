@@ -93,7 +93,7 @@ const comics = computed(() => {
   return {
     id: comicData.value.id,
     title: comicData.value.title,
-    description: comicData.value.description || 'Описание отсутствует',
+    description: comicData.value.desc || 'Описание отсутствует',
     author: comicData.value.user?.nick || 'Неизвестен',
     date: formatDate(comicData.value.date_of_out),
     rating: comicData.value.average_rating?.toFixed(1) || '0.0',

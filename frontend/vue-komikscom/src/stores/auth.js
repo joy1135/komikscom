@@ -17,6 +17,7 @@ export const useAuthStore = defineStore('auth', {
           this.nickname = decoded.nick || 'Пользователь'
           this.userId = decoded.id || null
           this.email = decoded.sub || ''
+          this.role = decoded.role
           this.isLoggedIn = true
         } else {
           this.resetAuthState()
@@ -32,6 +33,7 @@ export const useAuthStore = defineStore('auth', {
       this.nickname = decoded.nick || 'Пользователь'
       this.email = decoded.email || ''
       this.userId = decoded.sub || null
+      this.role = decoded.role
       this.isLoggedIn = true
     },
     logout() {
@@ -43,6 +45,13 @@ export const useAuthStore = defineStore('auth', {
       this.email = ''
       this.userId = null
       this.isLoggedIn = false
+      this.role = null
+    },
+  getters: {
+    canCreateComics: (state) => {
+      return state.role === 1 || state.role === 3
     }
+  }
+    
   }
 })
