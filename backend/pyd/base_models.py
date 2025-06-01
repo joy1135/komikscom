@@ -15,7 +15,7 @@ class UserBase(BaseModel):
 class ComicBase(BaseModel):
     id: int
     title: str = Field(..., example="Shrek", max_length=255)
-    desc: str = Field(..., example="Awesome Comic", max_length=255)
+    desc: Optional[str] = Field(None, example="Awesome Comic", max_length=255)
     date_of_out: date = Field(..., example="2023-01-15")
     website_recommendation: bool = Field(..., example=True)
     img: str =Field(...)
