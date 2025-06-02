@@ -25,6 +25,10 @@ class ComicBase(BaseModel):
         from_attributes = True
 
 class CommentBase(BaseModel):
+    id: int
+    userID: int
+    comicID: int
+    user: UserBase
     comment: str = Field(..., example="Great comic!", max_length=255)
 
 class RatingBase(BaseModel):
