@@ -4,7 +4,7 @@
 
     <div class="max-w-6xl mx-auto -mt-20 flex gap-6 p-6">
       <!-- Левая панель -->
-      <div class="w-1/4 bg-black p-4 rounded-lg shadow">
+      <div class="w-1/4 bg-black p-4 rounded-lg shadow flex flex-col">
         <img :src="comics.cover" alt="Cover" class="w-full h-64 object-cover rounded-lg mb-4" />
 
         <button
@@ -13,22 +13,35 @@
         >
           Начать читать
         </button>
-        <button class="w-full bg-gray-500 text-white py-2 rounded mb-4">Комментарии</button>
 
-        <div class="space-y-2 text-sm">
+        <!-- Оценка комикса -->
+        <div class="mb-4">
+          <h3 class="font-semibold mb-1">Оценить комикс:</h3>
+          <select v-model.number="ratingValue" class="w-full text-black p-1 rounded mb-2">
+            <option v-for="n in 10" :key="n" :value="n">{{ n }}</option>
+          </select>
+          <button
+            class="w-full bg-red-600 hover:bg-red-700 text-white py-2 rounded"
+            :disabled="ratingLoading || !authStore.isLoggedIn"
+            @click="submitRating"
+          >
+            {{ ratingLoading ? 'Отправка...' : 'Отправить оценку' }}
+          </button>
+          <div v-if="ratingError" class="text-red-500 mt-1 text-sm">{{ ratingError }}</div>
+        </div>
+
+        <!-- Информация о комиксе -->
+        <div class="space-y-2 text-sm flex-grow">
           <div><span class="font-semibold">Дата выпуска:</span> {{ comics.date }}</div>
           <div><span class="font-semibold">Автор:</span> {{ comics.author }}</div>
           <div><span class="font-semibold">Жанры:</span> {{ comics.genres.join(', ') }}</div>
-          <div><span class="font-semibold">Оценка:</span> {{ comics.rating }}</div>
-          <div>
-            <span class="font-semibold">Кол-во глав:</span> 
-            {{ comics.chaptersCount }}
-          </div>
+          <div><span class="font-semibold">Средняя оценка:</span> {{ comics.rating }}</div>
+          <div><span class="font-semibold">Кол-во глав:</span> {{ comics.chaptersCount }}</div>
         </div>
       </div>
 
       <!-- Правая панель -->
-      <div class="flex-1 bg-neutral-900 p-6 rounded-lg shadow">
+      <div class="flex-1 bg-neutral-900 p-6 rounded-lg shadow flex flex-col">
         <div class="flex justify-between items-center mb-4">
           <h1 class="text-2xl font-bold">{{ comics.title }}</h1>
           <button 
@@ -39,7 +52,6 @@
           >
             <span v-if="favoriteLoading">...</span>
             <span v-else>{{ isFavorite ? '♥' : '♡' }}</span>
-
           </button>
         </div>
 
@@ -49,7 +61,7 @@
         </div>
 
         <!-- Том и главы -->
-        <div>
+        <div class="flex-grow overflow-y-auto">
           <h2 class="font-semibold mb-2">Тома и главы:</h2>
           
           <div v-if="loading" class="text-center py-4">Загрузка глав...</div>
@@ -79,29 +91,80 @@
             </div>
           </div>
         </div>
+
+        <!-- Комментарии -->
+        <div class="mt-6 border-t border-gray-700 pt-4">
+          <h2 class="text-xl font-semibold mb-4">Комментарии</h2>
+
+          <div v-if="loadingComments" class="text-center py-4 text-gray-400">Загрузка комментариев...</div>
+          <div v-else-if="comments.length === 0" class="text-gray-400 mb-4">Комментариев пока нет</div>
+          <div v-else class="max-h-64 overflow-y-auto mb-4">
+            <div v-for="comment in comments" :key="comment.id" class="mb-3 border-b border-gray-700 pb-2">
+              <p class="text-gray-400 font-semibold">
+                <span v-if="comment.user">{{ comment.user.nick }}</span>
+                <span v-else>Аноним</span>
+                <small class="ml-2 text-xs text-gray-600">{{ formatDate(comment.created_at) }}</small>
+              </p>
+              <p class="text-white whitespace-pre-wrap">{{ comment.comment }}</p>
+            </div>
+          </div>
+
+          <!-- Форма добавления комментария -->
+          <form @submit.prevent="submitComment">
+            <textarea
+              v-model="newComment"
+              rows="3"
+              placeholder="Оставьте комментарий"
+              class="w-full p-2 rounded bg-gray-800 text-white resize-none"
+              :disabled="!authStore.isLoggedIn || commentLoading"
+              required
+            ></textarea>
+            <button
+              type="submit"
+              class="mt-2 w-full bg-green-600 hover:bg-green-700 text-white py-2 rounded"
+              :disabled="commentLoading || !authStore.isLoggedIn"
+            >
+              {{ commentLoading ? 'Отправка...' : 'Отправить комментарий' }}
+            </button>
+            <div v-if="commentError" class="text-red-500 mt-1 text-sm">{{ commentError }}</div>
+            <div v-if="!authStore.isLoggedIn" class="text-yellow-400 mt-1 text-sm">
+              Чтобы оставить комментарий, нужно <router-link to="/login" class="underline">войти</router-link>.
+            </div>
+          </form>
+        </div>
       </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch, nextTick } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 
 const route = useRoute()
 const router = useRouter()
-const API_URL = import.meta.env.VITE_API_URL 
+const API_URL = import.meta.env.VITE_API_URL
 
 const authStore = useAuthStore()
 
 const comicData = ref(null)
 const loading = ref(true)
-const isFavorite = ref(false)
-const favoriteLoading = ref(false)
 const comicId = ref(0)
 
-// Преобразуем данные комикса
+const isFavorite = ref(false)
+const favoriteLoading = ref(false)
+
+const comments = ref([])
+const loadingComments = ref(false)
+const commentLoading = ref(false)
+const commentError = ref('')
+const newComment = ref('')
+
+const ratingValue = ref(5)
+const ratingLoading = ref(false)
+const ratingError = ref('')
+
 const comics = computed(() => {
   if (!comicData.value) return emptyComic()
 
@@ -132,19 +195,17 @@ const sortedChapters = (chapters) => {
 }
 
 const fetchComicsById = async (id) => {
+  loading.value = true
   try {
-    loading.value = true
-    const response = await fetch(`${API_URL}/comic/comics/${id}`)
-    if (!response.ok) throw new Error(`Ошибка HTTP: ${response.status}`)
-    const data = await response.json()
+    const res = await fetch(`${API_URL}/comic/comics/${id}`)
+    if (!res.ok) throw new Error(`Ошибка HTTP: ${res.status}`)
+    const data = await res.json()
     comicData.value = data
     comicId.value = data.id
-    return data
   } catch (err) {
-    console.error('Ошибка при загрузке комикса:', err)
+    console.error('Ошибка загрузки комикса:', err)
     comicData.value = emptyComic()
     comicId.value = 0
-    return emptyComic()
   } finally {
     loading.value = false
   }
@@ -155,28 +216,22 @@ const checkFavoriteStatus = async () => {
     isFavorite.value = false
     return
   }
-
+  favoriteLoading.value = true
   try {
-    favoriteLoading.value = true
-    const response = await fetch(`${API_URL}/comic/${comicId.value}/is_favorite`, {
-      headers: {
-        'Authorization': `Bearer ${localStorage.getItem('access_token')}`
-      }
+    const res = await fetch(`${API_URL}/comic/${comicId.value}/is_favorite`, {
+      headers: { Authorization: `Bearer ${localStorage.getItem('access_token')}` }
     })
-
-    if (response.ok) {
-      const data = await response.json()
+    if (res.ok) {
+      const data = await res.json()
       isFavorite.value = data
     } else {
       isFavorite.value = false
     }
-  } catch (err) {
-    console.error('Ошибка проверки избранного:', err)
+  } catch {
     isFavorite.value = false
   } finally {
     favoriteLoading.value = false
   }
-  
 }
 
 const toggleFavorite = async () => {
@@ -184,120 +239,169 @@ const toggleFavorite = async () => {
     router.push('/login')
     return
   }
-
   if (!comicId.value) return
-  
-  try {
-    favoriteLoading.value = true
-    const currentState = isFavorite.value
-    isFavorite.value = !currentState
 
-    if (currentState) {
-      await removeFromFavorites()
+  favoriteLoading.value = true
+  try {
+    if (isFavorite.value) {
+      const res = await fetch(`${API_URL}/comic/${comicId.value}/del_favorite`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${localStorage.getItem('access_token')}` }
+      })
+      if (!res.ok) throw new Error('Ошибка удаления из избранного')
+      isFavorite.value = false
     } else {
-      await addToFavorites()
+      const res = await fetch(`${API_URL}/comic/${comicId.value}/favorite`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${localStorage.getItem('access_token')}` }
+      })
+      if (!res.ok) throw new Error('Ошибка добавления в избранное')
+      isFavorite.value = true
     }
   } catch (err) {
-    console.error('Ошибка обновления избранного:', err)
-    isFavorite.value = !isFavorite.value
+    alert(err.message)
   } finally {
     favoriteLoading.value = false
   }
 }
 
-const addToFavorites = async () => {
-  const response = await fetch(`${API_URL}/comic/${comicId.value}/favorite`, {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${localStorage.getItem('access_token')}`
-    }
-  })
-  if (!response.ok) throw new Error('Не удалось добавить в избранное')
+const fetchComments = async () => {
+  if (!comicId.value) return
+  loadingComments.value = true
+  commentError.value = ''
+  try {
+    const res = await fetch(`${API_URL}/comm/${comicId.value}/comments`)
+    if (!res.ok) throw new Error(`Ошибка загрузки комментариев: ${res.status}`)
+    const data = await res.json()
+    comments.value = data
+  } catch (err) {
+    commentError.value = 'Ошибка загрузки комментариев'
+    comments.value = []
+  } finally {
+    loadingComments.value = false
+  }
 }
 
-const removeFromFavorites = async () => {
-  const response = await fetch(`${API_URL}/comic/${comicId.value}/del_favorite`, {
-    method: 'DELETE',
-    headers: {
-      'Authorization': `Bearer ${localStorage.getItem('access_token')}`
-    }
-  })
-  if (!response.ok) throw new Error('Не удалось удалить из избранного')
+const submitComment = async () => {
+  if (!authStore.isLoggedIn) {
+    commentError.value = 'Для комментирования нужно войти в аккаунт'
+    return
+  }
+  if (!newComment.value.trim()) return
+  commentLoading.value = true
+  commentError.value = ''
+  try {
+    const comment = JSON.stringify({
+        comment: newComment.value.trim(),
+        comicID: comicId.value,
+        userID: authStore.userId,
+        user: {
+          email: authStore.email,
+          nick: authStore.nickname}
+      })
+    const res = await fetch(`${API_URL}/comm/${comicId.value}/comments`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${localStorage.getItem('access_token')}`
+      },
+      body: comment
+    })
+    console.log(comment)
+    if (!res.ok) throw new Error(`Ошибка отправки комментария: ${res.status}`)
+    newComment.value = ''
+    await fetchComments()
+  } catch (err) {
+    commentError.value = err.message || 'Ошибка отправки комментария'
+  } finally {
+    commentLoading.value = false
+  }
 }
 
-const goToReader = (comicId, chapterId) => {
-  router.push({
-    name: 'reader',
-    params: {
-      comic_id: comicId,
-      chapter_id: chapterId,
-      page_number: 1
+const submitRating = async () => {
+  if (!authStore.isLoggedIn) {
+    ratingError.value = 'Для оценки нужно войти в аккаунт'
+    return
+  }
+  ratingLoading.value = true
+  ratingError.value = ''
+  try {
+    const payload = {
+      value: ratingValue.value,
+      user_id: authStore.userId,
+      comic_id: comicId.value,
     }
-  })
+    const res = await fetch(`${API_URL}/comm/${comicId.value}/rate`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${localStorage.getItem('access_token')}`
+      },
+      body: JSON.stringify(payload)
+    })
+    if (!res.ok) throw new Error(`Ошибка отправки рейтинга: ${res.status}`)
+    alert('Оценка отправлена')
+  } catch (err) {
+    ratingError.value = err.message || 'Ошибка отправки рейтинга'
+  } finally {
+    ratingLoading.value = false
+  }
 }
 
 const startReading = () => {
-  if (!comicData.value?.volumes?.length) return
-  const firstVolumeWithChapters = comicData.value.volumes.find(v => v.chapters?.length)
-  if (!firstVolumeWithChapters) return
-  const firstChapter = sortedChapters(firstVolumeWithChapters.chapters)[0]
+  if (volumes.value.length === 0) return
+  const firstVolume = volumes.value[0]
+  if (!firstVolume.chapters || firstVolume.chapters.length === 0) return
+  const firstChapter = sortedChapters(firstVolume.chapters)[0]
   if (!firstChapter) return
-  goToReader(comicData.value.id, firstChapter.id)
+
+  router.push(`/reader/${comicId.value}/${firstChapter.id}`)
 }
 
-const formatDate = (dateString) => {
-  if (!dateString) return 'Дата неизвестна'
-  try {
-    const date = new Date(dateString)
-    return date.toLocaleDateString('ru-RU', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    })
-  } catch {
-    return dateString
-  }
+const goToReader = (comicId, chapterId) => {
+  router.push(`/reader/${comicId}/${chapterId}`)
 }
 
 const emptyComic = () => ({
   id: 0,
-  title: 'Не найдено',
-  description: 'Комикс не найден или произошла ошибка загрузки',
-  author: '',
-  date: '',
-  rating: '0.0',
+  title: 'Загрузка...',
+  desc: '',
+  user: { nick: '' },
+  date_of_out: '',
+  average_rating: 0,
   genres: [],
-  cover: '/placeholder-cover.jpg',
-  bg: '/placeholder-bg.jpg',
+  img: '',
+  volumes: [],
   chaptersCount: 0
 })
 
-const loadComicData = async () => {
-  const data = await fetchComicsById(route.params.id)
-
-  if (data?.id && authStore.isLoggedIn) {
-    await checkFavoriteStatus()
-  } else {
-    isFavorite.value = false
-  }
+const formatDate = (dateString) => {
+  if (!dateString) return ''
+  const d = new Date(dateString)
+  return d.toLocaleDateString('ru-RU')
 }
 
-watch(() => route.params.id, () => {
-  comicData.value = null
-  comicId.value = 0
-  isFavorite.value = false
-  loadComicData()
+onMounted(async () => {
+  const id = +route.params.id || 0
+  await fetchComicsById(id)
+  await checkFavoriteStatus()
+  await fetchComments()
 })
 
-watch(() => authStore.isLoggedIn, async (isLoggedIn) => {
-  if (isLoggedIn && comicId.value > 0) {
-    await checkFavoriteStatus()
-  } else {
-    isFavorite.value = false
-  }
-})
-
-onMounted(() => {
-  loadComicData()
+watch(() => route.params.id, async (newId) => {
+  const id = +newId || 0
+  await fetchComicsById(id)
+  await checkFavoriteStatus()
+  comments.value = []
+  newComment.value = ''
+  ratingValue.value = 5
+  await fetchComments()
 })
 </script>
+
+<style scoped>
+select {
+  background-color: #1f1f1f;
+  color: white;
+}
+</style>
