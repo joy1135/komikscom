@@ -25,7 +25,6 @@ class ComicBase(BaseModel):
         from_attributes = True
 
 class CommentBase(BaseModel):
-    id: int
     userID: int
     comicID: int
     user: UserBase
