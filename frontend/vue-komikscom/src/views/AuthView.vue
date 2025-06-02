@@ -55,13 +55,15 @@
 <script setup>
 import router from '@/router'
 import { ref } from 'vue'
+import { useAuthStore } from '@/stores/auth'
 
+const apiUrl = import.meta.env.VITE_API_URL;
 const email = ref('')
 const password = ref('')
 const message = ref('')
 const isRegistering = ref(false)
 const nickname = ref('')
-
+const authStore = useAuthStore()
 const handleLogin = async () => {
   try {
     const response = await fetch('http://127.0.0.1:8000/api/user/login', {
@@ -75,11 +77,11 @@ const handleLogin = async () => {
       }),
     })
     
-    if (!response.ok) throw await response.json()
-    const data = await response.json();
-    localStorage.setItem('access_token', data.access_token); 
-    router.push('/catalogue')
-    message.value = 'Успешный вход!'
+     if (response.ok) {
+      const data = await response.json()
+      authStore.login(data.access_token) // Обновляем состояние
+      router.push('/catalogue')
+    }
   } catch (error) {
     message.value = error.detail || 'Ошибка входа'
   }
@@ -94,7 +96,7 @@ const handleRegisterClick = async () => {
   if (!validateRegistration()) return
   
   try {
-    const response = await fetch('http://127.0.0.1:8000/api/user/register', {
+    const response = await fetch(`${apiUrl}/user/register`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
