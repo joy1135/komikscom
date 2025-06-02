@@ -31,7 +31,16 @@
       <div class="flex-1 bg-neutral-900 p-6 rounded-lg shadow">
         <div class="flex justify-between items-center mb-4">
           <h1 class="text-2xl font-bold">{{ comics.title }}</h1>
-          <button class="text-2xl">♡</button>
+          <button 
+            class="text-2xl transition-colors duration-300"
+            :class="isFavorite ? 'text-red-500' : 'text-gray-400 hover:text-white'"
+            @click="toggleFavorite"
+            :disabled="favoriteLoading"
+          >
+            <span v-if="favoriteLoading">...</span>
+            <span v-else>{{ isFavorite ? '♥' : '♡' }}</span>
+
+          </button>
         </div>
 
         <div class="mb-4">
@@ -76,17 +85,23 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { useAuthStore } from '@/stores/auth'
 
 const route = useRoute()
 const router = useRouter()
 const API_URL = import.meta.env.VITE_API_URL 
 
+const authStore = useAuthStore()
+
 const comicData = ref(null)
 const loading = ref(true)
+const isFavorite = ref(false)
+const favoriteLoading = ref(false)
+const comicId = ref(0)
 
-// Преобразуем данные комикса для интерфейса
+// Преобразуем данные комикса
 const comics = computed(() => {
   if (!comicData.value) return emptyComic()
 
@@ -106,42 +121,110 @@ const comics = computed(() => {
   }
 })
 
-// Получаем тома с сортировкой
 const volumes = computed(() => {
   if (!comicData.value?.volumes) return []
-  
-  // Сортируем тома по номеру
   return [...comicData.value.volumes].sort((a, b) => a.number - b.number)
 })
 
-// Сортировка глав по номеру
 const sortedChapters = (chapters) => {
   if (!chapters) return []
   return [...chapters].sort((a, b) => a.number - b.number)
 }
 
-// Загрузка данных комикса
 const fetchComicsById = async (id) => {
   try {
     loading.value = true
     const response = await fetch(`${API_URL}/comic/comics/${id}`)
-    
-    if (!response.ok) {
-      throw new Error(`Ошибка HTTP: ${response.status}`)
-    }
-    
+    if (!response.ok) throw new Error(`Ошибка HTTP: ${response.status}`)
     const data = await response.json()
     comicData.value = data
-    
+    comicId.value = data.id
+    return data
   } catch (err) {
     console.error('Ошибка при загрузке комикса:', err)
     comicData.value = emptyComic()
+    comicId.value = 0
+    return emptyComic()
   } finally {
     loading.value = false
   }
 }
 
-// Переход к первой странице главы
+const checkFavoriteStatus = async () => {
+  if (!authStore.isLoggedIn || !comicId.value) {
+    isFavorite.value = false
+    return
+  }
+
+  try {
+    favoriteLoading.value = true
+    const response = await fetch(`${API_URL}/comic/${comicId.value}/is_favorite`, {
+      headers: {
+        'Authorization': `Bearer ${localStorage.getItem('access_token')}`
+      }
+    })
+
+    if (response.ok) {
+      const data = await response.json()
+      isFavorite.value = data
+    } else {
+      isFavorite.value = false
+    }
+  } catch (err) {
+    console.error('Ошибка проверки избранного:', err)
+    isFavorite.value = false
+  } finally {
+    favoriteLoading.value = false
+  }
+  
+}
+
+const toggleFavorite = async () => {
+  if (!authStore.isLoggedIn) {
+    router.push('/login')
+    return
+  }
+
+  if (!comicId.value) return
+  
+  try {
+    favoriteLoading.value = true
+    const currentState = isFavorite.value
+    isFavorite.value = !currentState
+
+    if (currentState) {
+      await removeFromFavorites()
+    } else {
+      await addToFavorites()
+    }
+  } catch (err) {
+    console.error('Ошибка обновления избранного:', err)
+    isFavorite.value = !isFavorite.value
+  } finally {
+    favoriteLoading.value = false
+  }
+}
+
+const addToFavorites = async () => {
+  const response = await fetch(`${API_URL}/comic/${comicId.value}/favorite`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${localStorage.getItem('access_token')}`
+    }
+  })
+  if (!response.ok) throw new Error('Не удалось добавить в избранное')
+}
+
+const removeFromFavorites = async () => {
+  const response = await fetch(`${API_URL}/comic/${comicId.value}/del_favorite`, {
+    method: 'DELETE',
+    headers: {
+      'Authorization': `Bearer ${localStorage.getItem('access_token')}`
+    }
+  })
+  if (!response.ok) throw new Error('Не удалось удалить из избранного')
+}
+
 const goToReader = (comicId, chapterId) => {
   router.push({
     name: 'reader',
@@ -153,25 +236,17 @@ const goToReader = (comicId, chapterId) => {
   })
 }
 
-// Начать чтение с первой главы первого тома
 const startReading = () => {
   if (!comicData.value?.volumes?.length) return
-  
-  // Находим первый том с главами
   const firstVolumeWithChapters = comicData.value.volumes.find(v => v.chapters?.length)
   if (!firstVolumeWithChapters) return
-  
-  // Находим первую главу в томе
   const firstChapter = sortedChapters(firstVolumeWithChapters.chapters)[0]
   if (!firstChapter) return
-  
   goToReader(comicData.value.id, firstChapter.id)
 }
 
-// Форматирование даты
 const formatDate = (dateString) => {
   if (!dateString) return 'Дата неизвестна'
-  
   try {
     const date = new Date(dateString)
     return date.toLocaleDateString('ru-RU', {
@@ -184,7 +259,6 @@ const formatDate = (dateString) => {
   }
 }
 
-// Пустой комикс для состояния ошибки
 const emptyComic = () => ({
   id: 0,
   title: 'Не найдено',
@@ -198,7 +272,32 @@ const emptyComic = () => ({
   chaptersCount: 0
 })
 
+const loadComicData = async () => {
+  const data = await fetchComicsById(route.params.id)
+
+  if (data?.id && authStore.isLoggedIn) {
+    await checkFavoriteStatus()
+  } else {
+    isFavorite.value = false
+  }
+}
+
+watch(() => route.params.id, () => {
+  comicData.value = null
+  comicId.value = 0
+  isFavorite.value = false
+  loadComicData()
+})
+
+watch(() => authStore.isLoggedIn, async (isLoggedIn) => {
+  if (isLoggedIn && comicId.value > 0) {
+    await checkFavoriteStatus()
+  } else {
+    isFavorite.value = false
+  }
+})
+
 onMounted(() => {
-  fetchComicsById(route.params.id)
+  loadComicData()
 })
 </script>
