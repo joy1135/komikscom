@@ -4,8 +4,8 @@
 
     <div class="max-w-6xl mx-auto -mt-20 flex gap-6 p-6">
       <!-- Левая панель -->
-      <div class="w-1/4 bg-black p-4 rounded-lg shadow flex flex-col">
-        <img :src="comics.cover" alt="Cover" class="w-full h-64 object-cover rounded-lg mb-4" />
+      <div class="w-1/4 bg-neutral-900 p-4 rounded-lg shadow flex flex-col h-full">
+        <img :src="comics.cover" alt="Cover" class="w-full h-64 object-contain rounded-lg mb-4" />
 
         <button
           class="w-full bg-red-600 text-white py-2 rounded mb-2 hover:bg-red-700"
@@ -38,6 +38,31 @@
           <div><span class="font-semibold">Средняя оценка:</span> {{ comics.rating }}</div>
           <div><span class="font-semibold">Кол-во глав:</span> {{ comics.chaptersCount }}</div>
         </div>
+
+        <!-- Управление комиксом -->
+        <div v-if="isAdminOrAuthor" class="mt-4 border-t border-gray-700 pt-4">
+          <h3 class="font-semibold mb-2">Управление комиксом:</h3>
+        
+          <!-- Загрузка страниц --> 
+          <div v-if="selectedChapterForUpload" class="mt-2">
+            <input 
+              type="file" 
+              ref="fileInput" 
+              multiple 
+              accept="image/*" 
+              class="hidden" 
+              @change="handleFileUpload"
+            >
+            <button
+              class="w-full bg-purple-600 hover:bg-purple-700 text-white py-2 rounded mb-2"
+              @click="triggerFileInput"
+            >
+              Загрузить страницы
+            </button>
+            <div v-if="uploadingPages" class="text-center text-sm text-gray-400">Загрузка...</div>
+            <div v-if="uploadError" class="text-red-500 text-sm">{{ uploadError }}</div>
+          </div>
+        </div>
       </div>
 
       <!-- Правая панель -->
@@ -62,7 +87,18 @@
 
         <!-- Том и главы -->
         <div class="flex-grow overflow-y-auto">
-          <h2 class="font-semibold mb-2">Тома и главы:</h2>
+          <div class="flex justify-between items-center mb-2">
+            <h2 class="font-semibold">Тома и главы:</h2>
+            <!-- Кнопка добавления тома для админа/автора -->
+            <button 
+              v-if="isAdminOrAuthor"
+              @click="createVolume"
+              class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm"
+              :disabled="volumeLoading"
+            >
+              + Добавить том
+            </button>
+          </div>
           
           <div v-if="loading" class="text-center py-4">Загрузка глав...</div>
           
@@ -72,19 +108,58 @@
           
           <div v-else>
             <div v-for="volume in volumes" :key="volume.id" class="mb-4">
-              <h3 class="text-lg font-bold mb-2">Том {{ volume.number }}</h3>
+              <div class="flex justify-between items-center mb-2">
+                <h3 class="text-lg font-bold">Том {{ volume.number }}</h3>
+                <div v-if="isAdminOrAuthor">
+                  <!-- Кнопка добавления главы -->
+                  <button 
+                    @click="createChapter(volume.id)"
+                    class="bg-blue-600 hover:bg-blue-700 text-white px-2 py-1 rounded text-sm mr-2"
+                    :disabled="chapterLoading"
+                  >
+                    + Глава
+                  </button>
+                  <!-- Кнопка удаления тома -->
+                  <button 
+                    @click="deleteVolume(volume.id)"
+                    class="bg-red-600 hover:bg-red-700 text-white px-2 py-1 rounded text-sm"
+                    :disabled="deletingVolume === volume.id"
+                  >
+                    Удалить
+                  </button>
+                </div>
+              </div>
               <ul class="space-y-1">
                 <li
                   v-for="chapter in sortedChapters(volume.chapters)"
                   :key="chapter.id"
-                  class="bg-neutral-800 px-4 py-2 rounded hover:bg-neutral-700 cursor-pointer"
-                  @click="goToReader(comics.id, chapter.id)"
+                  class="bg-neutral-800 px-4 py-2 rounded hover:bg-neutral-700"
                 >
-                  <div class="flex items-center">
-                    <span>
+                  <div class="flex justify-between items-center">
+                    <span class="cursor-pointer" @click="goToReader(comics.id, chapter.id)">
                       Глава {{ chapter.number }} 
                       <span v-if="chapter.title">- {{ chapter.title }}</span>
                     </span>
+                    <div>
+                      <!-- Кнопка загрузки страниц -->
+                      <button 
+                        v-if="isAdminOrAuthor"
+                        @click.stop="selectChapterForUpload(chapter.id)"
+                        class="text-blue-400 hover:text-blue-600 mr-2 text-sm"
+                        :class="{ 'text-blue-600 font-bold': selectedChapterForUpload === chapter.id }"
+                      >
+                        Страницы
+                      </button>
+                      <!-- Кнопка удаления главы -->
+                      <button 
+                        v-if="isAdminOrAuthor"
+                        @click.stop="deleteChapter(chapter.id)"
+                        class="text-red-500 hover:text-red-700"
+                        :disabled="deletingChapter === chapter.id"
+                      >
+                        Удалить
+                      </button>
+                    </div>
                   </div>
                 </li>
               </ul>
@@ -145,8 +220,9 @@ import { useAuthStore } from '@/stores/auth'
 const route = useRoute()
 const router = useRouter()
 const API_URL = import.meta.env.VITE_API_URL
-
+const API_URL1 = import.meta.env.VITE_API_URL1
 const authStore = useAuthStore()
+const fileInput = ref(null)
 
 const comicData = ref(null)
 const loading = ref(true)
@@ -165,6 +241,26 @@ const ratingValue = ref(5)
 const ratingLoading = ref(false)
 const ratingError = ref('')
 
+// Управление томами/главами
+const volumeLoading = ref(false)
+const chapterLoading = ref(false)
+const deletingVolume = ref(null)
+const deletingChapter = ref(null)
+const deletingComic = ref(false)
+const selectedChapterForUpload = ref(null)
+const uploadingPages = ref(false)
+const uploadError = ref('')
+// проверка является ли пользователь автором комикса
+const isAuthorOfComic = computed(() => {
+  return comicData.value?.user?.id === authStore.userId
+})
+
+// Проверка прав (админ=1, автор=3)
+const isAdminOrAuthor = computed(() => {
+  return authStore.isLoggedIn && (authStore.role === 1 || authStore.role === 3) && isAuthorOfComic.value
+  
+})
+
 const comics = computed(() => {
   if (!comicData.value) return emptyComic()
 
@@ -176,7 +272,7 @@ const comics = computed(() => {
     date: formatDate(comicData.value.date_of_out),
     rating: comicData.value.average_rating?.toFixed(1) || '0.0',
     genres: comicData.value.genres?.map(g => g.name) || [],
-    cover: comicData.value.img ? `${API_URL}/${comicData.value.img}` : '/placeholder-cover.jpg',
+    cover: comicData.value.img ? `${API_URL1}/${comicData.value.img}` : '/placeholder-cover.jpg',
     bg: comicData.value.img ? `${API_URL}/${comicData.value.img}` : '/placeholder-bg.jpg',
     chaptersCount: comicData.value.volumes?.reduce(
       (total, volume) => total + (volume.chapters?.length || 0), 0
@@ -307,7 +403,6 @@ const submitComment = async () => {
       },
       body: comment
     })
-    console.log(comment)
     if (!res.ok) throw new Error(`Ошибка отправки комментария: ${res.status}`)
     newComment.value = ''
     await fetchComments()
@@ -355,11 +450,194 @@ const startReading = () => {
   const firstChapter = sortedChapters(firstVolume.chapters)[0]
   if (!firstChapter) return
 
-  router.push(`/reader/${comicId.value}/${firstChapter.id}`)
+  router.push(`/comic/${comicId.value}/chapter/${firstChapter.id}/page/1`)
 }
 
 const goToReader = (comicId, chapterId) => {
-  router.push(`/reader/${comicId}/${chapterId}`)
+  router.push(`/comic/${comicId}/chapter/${chapterId}/page/1`)
+}
+
+// Управление томами и главами
+const createVolume = async () => {
+  if (!isAdminOrAuthor.value) return
+  
+  volumeLoading.value = true
+  try {
+    const res = await fetch(`${API_URL}/create/comics/${comicId.value}/volumes`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${localStorage.getItem('access_token')}`
+      }
+    })
+    
+    if (!res.ok) {
+      const errorData = await res.json()
+      throw new Error(errorData.detail || 'Ошибка создания тома')
+    }
+    
+    await fetchComicsById(comicId.value)
+  } catch (err) {
+    alert(err.message)
+  } finally {
+    volumeLoading.value = false
+  }
+}
+
+const createChapter = async (volumeId) => {
+  if (!isAdminOrAuthor.value) return
+  
+  chapterLoading.value = true
+  try {
+    const title = prompt('Введите название главы (необязательно):') || null
+    
+    const res = await fetch(`${API_URL}/create/volumes/${volumeId}/chapters`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${localStorage.getItem('access_token')}`
+      },
+      body: JSON.stringify({ title })
+    })
+    
+    if (!res.ok) {
+      const errorData = await res.json()
+      throw new Error(errorData.detail || 'Ошибка создания главы')
+    }
+    
+    await fetchComicsById(comicId.value)
+  } catch (err) {
+    alert(err.message)
+  } finally {
+    chapterLoading.value = false
+  }
+}
+
+const deleteVolume = async (volumeId) => {
+  if (!isAdminOrAuthor.value) return
+  if (!confirm('Вы уверены? Все главы в этом томе будут удалены.')) return
+  
+  deletingVolume.value = volumeId
+  try {
+    const res = await fetch(`${API_URL}/create/volumes/${volumeId}`, {
+      method: 'DELETE',
+      headers: {
+        Authorization: `Bearer ${localStorage.getItem('access_token')}`
+      }
+    })
+    
+    if (!res.ok) {
+      const errorData = await res.json()
+      throw new Error(errorData.detail || 'Ошибка удаления тома')
+    }
+    
+    await fetchComicsById(comicId.value)
+  } catch (err) {
+    alert(err.message)
+  } finally {
+    deletingVolume.value = null
+  }
+}
+
+const deleteChapter = async (chapterId) => {
+  if (!isAdminOrAuthor.value) return
+  if (!confirm('Вы уверены, что хотите удалить главу?')) return
+  
+  deletingChapter.value = chapterId
+  try {
+    const res = await fetch(`${API_URL}/create/chapters/${chapterId}`, {
+      method: 'DELETE',
+      headers: {
+        Authorization: `Bearer ${localStorage.getItem('access_token')}`
+      }
+    })
+    
+    if (!res.ok) {
+      const errorData = await res.json()
+      throw new Error(errorData.detail || 'Ошибка удаления главы')
+    }
+    
+    await fetchComicsById(comicId.value)
+  } catch (err) {
+    alert(err.message)
+  } finally {
+    deletingChapter.value = null
+  }
+}
+
+const deleteComic = async () => {
+  if (authStore.roleId !== 1) return
+  if (!confirm('Вы уверены? Весь комикс будет полностью удален.')) return
+  
+  deletingComic.value = true
+  try {
+    const res = await fetch(`${API_URL}/comic/comics/${comicId.value}`, {
+      method: 'DELETE',
+      headers: {
+        Authorization: `Bearer ${localStorage.getItem('access_token')}`
+      }
+    })
+    
+    if (!res.ok) {
+      const errorData = await res.json()
+      throw new Error(errorData.detail || 'Ошибка удаления комикса')
+    }
+    
+    router.push('/')
+  } catch (err) {
+    alert(err.message)
+  } finally {
+    deletingComic.value = false
+  }
+}
+
+// Загрузка страниц
+const selectChapterForUpload = (chapterId) => {
+  selectedChapterForUpload.value = 
+    selectedChapterForUpload.value === chapterId ? null : chapterId
+}
+
+const triggerFileInput = () => {
+  if (fileInput.value) {
+    fileInput.value.click()
+  }
+}
+
+const handleFileUpload = async (event) => {
+  if (!selectedChapterForUpload.value) return
+  
+  const files = event.target.files
+  if (!files.length) return
+  
+  uploadingPages.value = true
+  uploadError.value = ''
+  
+  try {
+    const formData = new FormData()
+    for (let i = 0; i < files.length; i++) {
+      formData.append('files', files[i])
+    }
+    
+    const res = await fetch(`${API_URL}/create/chapters/${selectedChapterForUpload.value}/pages`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${localStorage.getItem('access_token')}`
+      },
+      body: formData
+    })
+    
+    if (!res.ok) {
+      const errorData = await res.json()
+      throw new Error(errorData.detail || 'Ошибка загрузки страниц')
+    }
+    
+    alert(`Успешно загружено ${files.length} страниц`)
+    await fetchComicsById(comicId.value)
+  } catch (err) {
+    uploadError.value = err.message
+  } finally {
+    uploadingPages.value = false
+    event.target.value = '' // Сброс input
+  }
 }
 
 const emptyComic = () => ({
@@ -395,6 +673,7 @@ watch(() => route.params.id, async (newId) => {
   comments.value = []
   newComment.value = ''
   ratingValue.value = 5
+  selectedChapterForUpload.value = null
   await fetchComments()
 })
 </script>
@@ -403,5 +682,14 @@ watch(() => route.params.id, async (newId) => {
 select {
   background-color: #1f1f1f;
   color: white;
+}
+
+button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+input[type="file"] {
+  display: none;
 }
 </style>

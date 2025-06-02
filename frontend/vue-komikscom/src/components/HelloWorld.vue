@@ -271,27 +271,60 @@ nav {
 
 /* Для мобильной адаптации */
 @media (max-width: 768px) {
-  .user-info {
+  .header-container {
     flex-direction: column;
     align-items: flex-start;
-    gap: 5px;
+    gap: 10px;
+    padding: 10px;
   }
-  
-  .profile-link {
-    padding: 3px 8px;
-    font-size: 0.9rem;
-    margin-right: 5px;
+
+  .logo {
+    margin-right: 0;
+    margin-bottom: 10px;
   }
-  
-  .logout-button {
-    padding: 3px 8px;
+
+  nav {
+    flex-direction: column;
+    gap: 10px;
+    width: 100%;
   }
-  
+
+  .auth-nav {
+    width: 100%;
+    margin-top: 10px;
+  }
+
+  .user-info {
+    width: 100%;
+    justify-content: space-between;
+    flex-direction: row;
+  }
+
+  .search-bar {
+    width: 100%;
+    margin: 0;
+  }
+
+  .search-bar input {
+    width: 100%;
+    font-size: 1rem;
+  }
+
   .search-results {
-    position: fixed;
-    top: 70px;
+    position: absolute;
+    top: calc(100% + 5px);
     left: 0;
     right: 0;
+    max-height: 200px;
+    font-size: 0.9rem;
+  }
+
+  .result-item {
+    padding: 8px 12px;
+  }
+
+  .profile-link, .logout-button {
+    font-size: 0.9rem;
   }
 }
 </style>

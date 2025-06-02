@@ -12,7 +12,7 @@
     </div>
 
     <div class="main-page-container">
-      <h2>Новинки</h2>
+      <h2 class="font-semibold text-white text-2xl">Новинки</h2>
       <div class="new-releases">
         <router-link
           v-for="item in newReleases"
@@ -25,7 +25,7 @@
             @error="handleImageError"
             alt="Cover" 
           />
-          <div class="info">
+          <div class="info line-clamp-2">
             <div>{{ item.title }}</div>
             <div class="author">{{ getAuthorName(item.userID) }}</div>
           </div>
@@ -36,7 +36,7 @@
         <img src="@/assets/pics/banner.jpg" alt="Banner">
       </div>
 
-      <h2>Новые авторы</h2>
+      <h2 class="font-semibold text-white text-2xl">Новые авторы</h2>
       <div class="new-authors">
         <div v-for="author in newAuthors" :key="author.id" class="author-card">
           <img 
@@ -115,7 +115,7 @@ onMounted(fetchData);
 
 <style scoped>
 .main-page {
-  background: white;
+  background: #1A1A1A;
   padding: 20px;
 }
 .main-page-container {
@@ -136,9 +136,13 @@ onMounted(fetchData);
 }
 .new-releases {
   background-color: #1A1A1A;
+  padding: 10px;
+  border:1px solid;
+  border-color: aliceblue;
   display: flex;
   gap: 10px;
   flex-wrap: wrap;
+  
 }
 .release-item {
   width: 100px;
@@ -161,6 +165,8 @@ onMounted(fetchData);
   margin: 20px 0;
 }
 .new-authors {
+  border:1px solid;
+  border-color: aliceblue;
   min-width: 85vw;
   margin: auto;
   display: flex;

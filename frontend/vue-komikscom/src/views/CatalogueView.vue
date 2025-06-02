@@ -16,13 +16,7 @@
         </select>
       </div>
 
-      <input
-        type="text"
-        v-model="searchQuery"
-        @input="applyFilters(true)"
-        placeholder="Поиск по названию"
-        class="w-full p-2 rounded bg-neutral-800 text-white"
-      />
+     
 
       <div class="grid grid-cols-5 gap-4 mt-4">
         <router-link
@@ -38,7 +32,7 @@
             class="w-full h-48 object-cover"
           />
           <div class="mt-2 text-center">
-            <div class="font-bold text-sm">{{ comic.title }}</div>
+            <span class="font-bold text-sm">{{ truncateString(comic.title, 20) }} </span>
             <div class="text-xs text-gray-400">{{ comic.author }}</div>
             <div class="text-xs text-yellow-400 mt-1">
               ★ {{ comic.average_rating ?? "—" }}
@@ -155,6 +149,17 @@ const currentPage = ref(1);
 const itemsPerPage = ref(5);
 const hasNextPage = ref(false);
 
+function truncateString(str, maxLength) {
+  if (str.length <= maxLength) {
+    return str; // Возвращаем строку без изменений, если она короче maxLength
+  }
+  
+  if (maxLength <= 3) {
+    return str.slice(0, maxLength); // Без многоточия, если не хватает места
+  }
+  
+  return str.slice(0, maxLength - 3) + '...'; // Обрезаем и добавляем ... (общая длина = maxLength)
+}
 const getFullImageUrl = (imgPath) => {
   if (!imgPath) return '';
   
@@ -251,7 +256,7 @@ function prevPage() {
 
 async function fetchGenres() {
   try {
-    const response = await fetch(`${apiUrl}/genre`);
+    const response = await fetch(`${apiUrl}/genre/`);
     
     if (!response.ok) {
       throw new Error(`Ошибка HTTP: ${response.status}`);
