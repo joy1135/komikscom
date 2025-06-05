@@ -146,7 +146,7 @@ const searchQuery = ref('');
 
 // Пагинация
 const currentPage = ref(1);
-const itemsPerPage = ref(5);
+const itemsPerPage = ref(10);
 const hasNextPage = ref(false);
 
 function truncateString(str, maxLength) {
@@ -313,5 +313,63 @@ img {
   width: 100px;
   height: 150px;
   object-fit: cover;
+}
+.grid-cols-5 {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+@media (max-width: 1280px) {
+  .grid-cols-5 {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 1024px) {
+  .grid-cols-5 {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 768px) {
+  .grid-cols-5 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .w-3\/4,
+  .w-1\/4 {
+    width: 100% !important;
+  }
+
+  .flex {
+    flex-direction: column;
+  }
+
+  .p-4 {
+    padding: 1rem;
+  }
+
+  .text-xl {
+    font-size: 1.125rem;
+  }
+
+  .text-lg {
+    font-size: 1rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .grid-cols-5 {
+    grid-template-columns: repeat(1, minmax(0, 1fr));
+  }
+
+  .text-sm {
+    font-size: 0.85rem;
+  }
+
+  .text-xs {
+    font-size: 0.75rem;
+  }
 }
 </style>

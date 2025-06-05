@@ -2,13 +2,20 @@
   <div class="main-page">
     <!-- Top Recommendations -->
     <div class="top-releases">
-      <div v-for="item in topReleases" :key="item.id" class="cover">
-        <img 
+    <router-link
+      v-for="item in topReleases"
+      :key="item.id"
+      :to="`/comics/${item.id}`"
+      class="release-item"
+    >
+      <div class="cover">
+        <img
           :src="getFullImageUrl(item.img)" 
           @error="handleImageError"
           alt="Cover" 
         />
       </div>
+    </router-link>
     </div>
 
     <div class="main-page-container">

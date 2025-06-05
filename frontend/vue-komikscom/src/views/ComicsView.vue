@@ -692,4 +692,103 @@ button:disabled {
 input[type="file"] {
   display: none;
 }
+/* Мобильная адаптация */
+@media (max-width: 768px) {
+  .max-w-6xl {
+    flex-direction: column;
+    padding: 0.5rem;
+    margin-top: -50px !important;
+  }
+  
+  .max-w-6xl > div {
+    width: 100% !important;
+  }
+  
+  .h-48 {
+    height: 100px;
+  }
+  
+  .flex {
+    flex-direction: column;
+    gap: 1rem;
+  }
+  
+  .text-2xl {
+    font-size: 1.25rem;
+  }
+  
+  .text-xl {
+    font-size: 1.1rem;
+  }
+  
+  .p-6 {
+    padding: 1rem;
+  }
+  
+  .p-4 {
+    padding: 0.75rem;
+  }
+  
+  .flex-grow {
+    max-height: none;
+  }
+  
+  .w-full.h-64 {
+    height: 200px;
+  }
+  
+  .space-y-2 > div {
+    font-size: 0.875rem;
+  }
+  
+  .text-sm {
+    font-size: 0.8rem;
+  }
+  
+  .flex.justify-between.items-center {
+    flex-wrap: wrap;
+  }
+  
+  .comic-management {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  
+  .chapter-actions {
+    margin-top: 0.5rem;
+    width: 100%;
+    justify-content: flex-end;
+  }
+}
+
+/* Общие улучшения для мобильных */
+select {
+  background-color: #1f1f1f;
+  color: white;
+}
+
+button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+input[type="file"] {
+  display: none;
+}
+  .comic-management > div {
+    margin-top: 0.5rem;
+  }
+  
+  .chapter-item {
+    flex-direction: column;
+  }
+  
+  .chapter-actions {
+    margin-top: 0.5rem;
+  }
+  
+  .volume-header {
+    flex-wrap: wrap;
+  }
+
 </style>

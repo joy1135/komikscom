@@ -41,7 +41,7 @@
                 class="w-full h-48 object-cover rounded"
               />
               <div class="mt-2 text-center">
-                <div class="font-bold text-sm">{{ comic.title }}</div>
+                <div class="font-bold text-sm">{{ truncateString(comic.title, 20) }}</div>
                 <div class="text-xs text-gray-400">{{ comic.author }}</div>
                 <div class="text-xs text-yellow-400 mt-1">
                   ★ {{ comic.average_rating ?? "—" }}
@@ -115,6 +115,17 @@ const searchQuery = ref('');
 const currentPage = ref(1);
 const itemsPerPage = 5;
 
+function truncateString(str, maxLength) {
+  if (str.length <= maxLength) {
+    return str; // Возвращаем строку без изменений, если она короче maxLength
+  }
+  
+  if (maxLength <= 3) {
+    return str.slice(0, maxLength); // Без многоточия, если не хватает места
+  }
+  
+  return str.slice(0, maxLength - 3) + '...'; // Обрезаем и добавляем ... (общая длина = maxLength)
+}
 // Получение изображения
 const getFullImageUrl = (imgPath) => {
   if (!imgPath) return '';
@@ -186,4 +197,66 @@ a {
   color: inherit;
   text-decoration: none;
 }
+
+/* Адаптивность */
+@media (max-width: 1024px) {
+  .flex {
+    flex-direction: column;
+  }
+
+  .w-3\/4 {
+    width: 100% !important;
+  }
+
+  .w-1\/4 {
+    display: none !important;
+  }
+
+  .grid-cols-5 {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .text-xl {
+    font-size: 1.25rem;
+  }
+
+  .text-lg {
+    font-size: 1.125rem;
+  }
+
+  .text-sm {
+    font-size: 0.875rem;
+  }
+
+  .p-4 {
+    padding: 1rem;
+  }
+
+  .mb-4 {
+    margin-bottom: 1rem;
+  }
+}
+
+@media (max-width: 768px) {
+  .grid-cols-5 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 480px) {
+  .grid-cols-5 {
+    grid-template-columns: repeat(1, minmax(0, 1fr));
+  }
+
+  .text-xs {
+    font-size: 0.75rem;
+  }
+
+  .p-2 {
+    padding: 0.5rem;
+  }
+}
+
+
+
 </style>
