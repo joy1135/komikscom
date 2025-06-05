@@ -100,11 +100,15 @@ async def get_favorite_comics_by_nick(nick: str, db: AsyncSession = Depends(get_
     
     if not user:
         raise HTTPException(status_code=404, detail="Пользователь не найден")
+
     sorted_comics = sorted(user.favorite_comics, key=lambda c: c.title.lower())
 
-    return sorted_comics
+    for comic in sorted_comics:
+        rating_stmt = select(func.avg(m.Rating.value)).where(m.Rating.comic_id == comic.id)
+        rating_result = await db.execute(rating_stmt)
+        comic.average_rating = rating_result.scalar()
 
-from sqlalchemy import func
+    return sorted_comics
 
 @router.get("/comics/{comic_id}", response_model=pyd.ComicResponse)
 async def get_comic_by_id(
